@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Prop Firm News Blackout Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style type="text/tailwindcss">
+  @layer components {
+    .card { @apply rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5 shadow-lg shadow-black/20; }
+    .card-title { @apply text-sm font-semibold text-white tracking-wide; }
+    .lbl { @apply block text-xs font-medium text-slate-400 mb-1; }
+    .inp { @apply w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:opacity-50 disabled:cursor-not-allowed; }
+    .btn { @apply inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 transition; }
+    .btn-on { @apply border-sky-500 bg-sky-600 text-white hover:bg-sky-500; }
+    .seg { @apply px-3 py-1.5 text-xs font-medium rounded-md text-slate-300 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 transition; }
+    .seg-on { @apply bg-slate-700 text-white shadow; }
+    .chip { @apply px-2.5 py-1 rounded-full border text-[11px] font-semibold tracking-wide transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500; }
+  }
+</style>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .mono { font-family: ui-monospace, "JetBrains Mono", "Cascadia Code", Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+  @keyframes flashRed {
+    0%,100% { background-color: rgb(185 28 28); box-shadow: 0 0 48px rgba(239,68,68,.55); }
+    50%     { background-color: rgb(69 10 10);  box-shadow: 0 0 8px rgba(239,68,68,.15); }
+  }
+  @keyframes flashAmber {
+    0%,100% { background-color: rgb(217 119 6); box-shadow: 0 0 40px rgba(245,158,11,.5); }
+    50%     { background-color: rgb(120 53 15); box-shadow: 0 0 8px rgba(245,158,11,.15); }
+  }
+  @keyframes borderPulse {
+    0%,100% { box-shadow: inset 0 0 0 5px rgba(239,68,68,.95); }
+    50%     { box-shadow: inset 0 0 0 5px rgba(239,68,68,.1); }
+  }
+  .flash-red   { animation: flashRed 1s ease-in-out infinite; }
+  .flash-amber { animation: flashAmber .8s ease-in-out infinite; }
+  .screen-alert::after { content:""; position:fixed; inset:0; pointer-events:none; z-index:50; animation: borderPulse 1s ease-in-out infinite; }
+
+  /* toggle switch */
+  .sw { position:relative; width:44px; height:24px; border-radius:9999px; background:#334155; transition:background .2s; flex-shrink:0; }
+  .sw[aria-checked="true"] { background:#0284c7; }
+  .sw .knob { position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; transition:transform .2s; }
+  .sw[aria-checked="true"] .knob { transform:translateX(20px); }
+  .sw:focus-visible { outline:2px solid #38bdf8; outline-offset:2px; }
+
+  input[type=range] { accent-color:#38bdf8; }
+  @media (prefers-reduced-motion: reduce) {
+    .flash-red, .flash-amber, .screen-alert::after { animation:none; }
+  }
+</style>
+</head>
+
+<body class="bg-slate-950 text-slate-200 min-h-screen antialiased">
+<div class="max-w-[1600px] mx-auto p-4 lg:p-6 space-y-4">
+
+  <!-- HEADER -->
+  <header class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 grid place-items-center shadow-lg shadow-sky-900/40">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 text-white" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M12 8v5M12 16h.01"/></svg>
+      </div>
+      <div>
+        <h1 class="text-lg font-semibold tracking-tight text-white">Prop Firm News Blackout Dashboard</h1>
+        <p class="text-xs text-slate-400">High-impact news guard · <span id="dataSrc" class="text-slate-300">loading calendar…</span></p>
+      </div>
+    </div>
+    <div class="flex items-center gap-4">
+      <button id="refreshBtn" type="button" class="btn" title="Reload calendar data">⟳ Refresh</button>
+      <span id="modeBadge" class="rounded-full px-2.5 py-1 text-[11px] font-bold tracking-widest border">LIVE</span>
+      <div class="text-right">
+        <div id="clock" class="mono text-2xl font-semibold text-white leading-none">--:--:--</div>
+        <div id="clockDate" class="text-xs text-slate-400 mt-1"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+
+    <!-- SIDEBAR -->
+    <aside class="space-y-4">
+      <section class="card">
+        <h2 class="card-title mb-3">Prop Firm Profile</h2>
+        <label for="profileSel" class="lbl">Rule preset</label>
+        <select id="profileSel" class="inp">
+          <option value="ftmo">FTMO (Standard) · ±2 min</option>
+          <option value="fundingpips">FundingPips · ±5 min</option>
+          <option value="custom">Restricted Custom</option>
+        </select>
+        <p id="profileNote" class="text-xs text-slate-400 mt-2 leading-relaxed"></p>
+        <div class="grid grid-cols-2 gap-3 mt-3">
+          <div>
+            <label for="beforeInp" class="lbl">Minutes before</label>
+            <input id="beforeInp" type="number" min="0" max="120" step="1" class="inp mono" />
+          </div>
+          <div>
+            <label for="afterInp" class="lbl">Minutes after</label>
+            <input id="afterInp" type="number" min="0" max="120" step="1" class="inp mono" />
+          </div>
+        </div>
+        <p id="customMsg" class="text-xs text-amber-400 mt-2 hidden" aria-live="polite"></p>
+        <div class="mt-3 rounded-lg bg-slate-950/70 border border-slate-800 px-3 py-2 text-xs text-slate-400">
+          Active rule: <span id="ruleSummary" class="mono text-sky-300"></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title mb-3">Instrument Scope</h2>
+        <label for="instSel" class="lbl">Instrument you're trading</label>
+        <select id="instSel" class="inp"></select>
+        <p class="text-xs text-slate-400 mt-2">Blackouts apply to red-folder events in: <span id="instCur" class="font-semibold text-slate-200"></span></p>
+      </section>
+
+      <section class="card space-y-4">
+        <h2 class="card-title">Alerts</h2>
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div id="audioLbl" class="text-sm text-slate-200">Warning chime</div>
+            <div class="text-xs text-slate-500">Plays 60 s before a blackout begins</div>
+          </div>
+          <button id="audioSw" type="button" role="switch" aria-checked="false" aria-labelledby="audioLbl" class="sw"><span class="knob"></span></button>
+        </div>
+        <div>
+          <label for="volInp" class="lbl">Chime volume</label>
+          <input id="volInp" type="range" min="0" max="100" step="1" class="w-full" />
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div id="flashLbl" class="text-sm text-slate-200">Flashing visual warnings</div>
+            <div class="text-xs text-slate-500">Pulses the status card and screen edge</div>
+          </div>
+          <button id="flashSw" type="button" role="switch" aria-checked="true" aria-labelledby="flashLbl" class="sw"><span class="knob"></span></button>
+        </div>
+        <button id="testChime" type="button" class="btn w-full justify-center">🔔 Test chime</button>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title mb-3">Display</h2>
+        <label for="tzSel" class="lbl">Show times in</label>
+        <select id="tzSel" class="inp">
+          <option value="local">My local time</option>
+          <option value="America/New_York">New York (ET)</option>
+          <option value="Europe/London">London</option>
+          <option value="UTC">UTC</option>
+          <option value="Asia/Kolkata">India (IST)</option>
+          <option value="Asia/Dubai">Dubai</option>
+        </select>
+      </section>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="space-y-4 min-w-0">
+
+      <!-- STATUS + COUNTDOWN -->
+      <section class="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+        <div id="statusCard" class="rounded-2xl p-6 border transition-colors" aria-live="polite">
+          <div class="flex items-center gap-2 text-[11px] uppercase tracking-[.2em] opacity-80">
+            <span id="statusDot" class="h-2.5 w-2.5 rounded-full bg-current"></span> Trading status
+          </div>
+          <div id="statusLabel" class="mt-3 text-3xl sm:text-4xl font-black tracking-tight">—</div>
+          <div id="statusSub" class="mt-2 text-sm opacity-90 min-h-[1.25rem]"></div>
+          <div id="statusBarWrap" class="mt-5 hidden">
+            <div class="h-2 rounded-full bg-black/35 overflow-hidden"><div id="statusBar" class="h-full bg-white/85 transition-[width] duration-200"></div></div>
+            <div class="flex justify-between text-[11px] mt-1 mono opacity-85"><span id="winStart"></span><span id="winEnd"></span></div>
+          </div>
+          <div class="mt-5 grid grid-cols-3 gap-2 text-xs">
+            <div class="rounded-lg bg-black/25 px-3 py-2"><div class="opacity-70">Rule</div><div id="statRule" class="mono font-semibold mt-0.5"></div></div>
+            <div class="rounded-lg bg-black/25 px-3 py-2"><div class="opacity-70">Scope</div><div id="statScope" class="font-semibold mt-0.5 truncate"></div></div>
+            <div class="rounded-lg bg-black/25 px-3 py-2"><div class="opacity-70">Windows left</div><div id="statLeft" class="mono font-semibold mt-0.5"></div></div>
+          </div>
+        </div>
+
+        <div class="card flex flex-col">
+          <div class="text-[11px] uppercase tracking-[.2em] text-slate-400">Next high-impact event</div>
+          <div id="countdown" class="mono text-5xl sm:text-6xl font-bold text-white mt-3 leading-none">--:--:--</div>
+          <div class="mt-4 flex items-center gap-2 flex-wrap">
+            <span id="nextCur" class="hidden"></span>
+            <span id="nextName" class="text-base font-semibold text-white"></span>
+          </div>
+          <div id="nextMeta" class="text-sm text-slate-400 mt-1"></div>
+          <div id="nextWin" class="mt-auto pt-4 text-xs text-slate-400"></div>
+        </div>
+      </section>
+
+      <!-- SIMULATOR -->
+      <section class="card">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="card-title">Time Simulator</h2>
+            <p class="text-xs text-slate-400">Scrub or fast-forward the week to test countdowns, warnings and the chime.</p>
+          </div>
+          <button id="simToggle" type="button" class="btn">⏱ Simulate Time: OFF</button>
+        </div>
+
+        <div class="mt-4">
+          <div id="timeline" class="relative h-10 rounded-lg bg-slate-950 border border-slate-800 overflow-hidden cursor-pointer" title="Click to jump simulated time">
+            <div id="tlMarks"></div>
+            <div id="tlCursor" class="absolute top-0 bottom-0 w-0.5 bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,.9)]"></div>
+          </div>
+          <div id="dayLabels" class="relative h-4 text-[10px] text-slate-500 mt-1"></div>
+          <input id="slider" type="range" class="w-full mt-1" aria-label="Simulated time across the trading week" />
+        </div>
+
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <button id="playBtn" type="button" class="btn">⏸ Pause</button>
+          <div class="inline-flex rounded-lg border border-slate-700 bg-slate-900 p-0.5" role="group" aria-label="Simulation speed">
+            <button type="button" class="seg" data-speed="1">1×</button>
+            <button type="button" class="seg" data-speed="10">10×</button>
+            <button type="button" class="seg" data-speed="60">60×</button>
+            <button type="button" class="seg" data-speed="300">300×</button>
+          </div>
+          <span class="w-px h-6 bg-slate-700 mx-1 hidden sm:block"></span>
+          <button type="button" class="btn" data-jump="preBlackout">⏭ 90 s before next blackout</button>
+          <button type="button" class="btn" data-jump="inBlackout">⛔ Into next blackout</button>
+          <button type="button" class="btn" data-jump="nextEvent">🎯 10 s before next event</button>
+          <button type="button" class="btn" data-jump="-15">−15 m</button>
+          <button type="button" class="btn" data-jump="1">+1 m</button>
+          <button type="button" class="btn" data-jump="15">+15 m</button>
+          <button id="liveBtn" type="button" class="btn">● Back to live</button>
+        </div>
+      </section>
+
+      <!-- CALENDAR -->
+      <section class="card">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="card-title">Economic Calendar</h2>
+            <p id="weekLabel" class="text-xs text-slate-400"></p>
+          </div>
+          <div class="inline-flex rounded-lg border border-slate-700 bg-slate-900 p-0.5" role="group" aria-label="Event filter">
+            <button type="button" class="seg" data-filter="all">All Events</button>
+            <button type="button" class="seg" data-filter="high">🟥 Red Folder Only</button>
+          </div>
+        </div>
+        <div id="curChips" class="flex flex-wrap gap-1.5 mt-3" role="group" aria-label="Currency filter"></div>
+        <div class="overflow-x-auto mt-3 -mx-1">
+          <table class="w-full text-sm min-w-[860px]">
+            <thead>
+              <tr class="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+                <th class="py-2 px-2 font-medium">Time <span id="tzAbbr" class="normal-case text-slate-600"></span></th>
+                <th class="py-2 px-2 font-medium">Currency</th>
+                <th class="py-2 px-2 font-medium">Event</th>
+                <th class="py-2 px-2 font-medium">Impact</th>
+                <th class="py-2 px-2 font-medium">Fcst / Prev</th>
+                <th class="py-2 px-2 font-medium">Blackout window</th>
+                <th class="py-2 px-2 font-medium text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody id="calBody"></tbody>
+          </table>
+        </div>
+        <p id="calEmpty" class="hidden text-sm text-slate-500 py-6 text-center">No events match the current filters.</p>
+      </section>
+    </main>
+  </div>
+
+  <footer class="text-[11px] text-slate-600 text-center pb-2">
+    Calendar data: Forex Factory weekly feed (via GitHub Actions). Times can shift and events can be added late. Prop firm rules change — always confirm the current news-trading terms with your firm and a live calendar.
+  </footer>
+</div>
+
+<div id="toasts" class="fixed bottom-4 right-4 z-[60] space-y-2 w-[min(360px,calc(100vw-2rem))]"></div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const ET = 'America/New_York';
+  const MIN = 60000;
+
+  /* ---------------- CONFIG ---------------- */
+  const PROFILES = {
+    ftmo:        { name: 'FTMO (Standard)',  before: 2, after: 2, note: 'Funded accounts: no opening or closing trades on affected instruments from 2 min before to 2 min after high-impact news.' },
+    fundingpips: { name: 'FundingPips',      before: 5, after: 5, note: 'No trading on affected pairs from 5 min before to 5 min after high-impact news.' },
+    custom:      { name: 'Restricted Custom', before: 3, after: 3, note: 'Define your own window. Values are whole minutes (0–120).' }
+  };
+  const INSTRUMENTS = {
+    ALL:    { label: 'All instruments (any currency)', cur: null },
+    XAUUSD: { label: 'XAUUSD · Gold',   cur: ['USD'] },
+    EURUSD: { label: 'EURUSD',          cur: ['EUR', 'USD'] },
+    GBPUSD: { label: 'GBPUSD',          cur: ['GBP', 'USD'] },
+    USDJPY: { label: 'USDJPY',          cur: ['USD', 'JPY'] },
+    USDCAD: { label: 'USDCAD',          cur: ['USD', 'CAD'] },
+    USDCHF: { label: 'USDCHF',          cur: ['USD', 'CHF'] },
+    NZDUSD: { label: 'NZDUSD',          cur: ['NZD', 'USD'] },
+    AUDUSD: { label: 'AUDUSD',          cur: ['AUD', 'USD'] },
+    EURGBP: { label: 'EURGBP',          cur: ['EUR', 'GBP'] },
+    US30:   { label: 'US30 · Dow',      cur: ['USD'] },
+    NAS100: { label: 'NAS100 · Nasdaq', cur: ['USD'] },
+    GER40:  { label: 'GER40 · DAX',     cur: ['EUR'] },
+    BTCUSD: { label: 'BTCUSD',          cur: ['USD'] }
+  };
+  let CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'NZD', 'CNY'];
+  const CUR_STYLE = {
+    USD: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+    EUR: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
+    GBP: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
+    JPY: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+    CAD: 'bg-red-500/15 text-red-300 border-red-500/30',
+    AUD: 'bg-teal-500/15 text-teal-300 border-teal-500/30',
+    CHF: 'bg-pink-500/15 text-pink-300 border-pink-500/30',
+    NZD: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
+    CNY: 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+  };
+  const curStyle = (c) => curStyle(c) || 'bg-slate-500/15 text-slate-300 border-slate-500/30';
+  const IMPACT = {
+    high:   { cls: 'text-red-500',    label: 'Red Folder' },
+    medium: { cls: 'text-orange-400', label: 'Medium' },
+    low:    { cls: 'text-yellow-300', label: 'Low' },
+    holiday:{ cls: 'text-slate-400',  label: 'Holiday' }
+  };
+
+  // DEMO fallback only (used when live data can't be loaded). d = day offset from Monday, times in New York (ET). 7 high-impact events.
+  const DEMO_SEED = [
+    { d: 0, h: 3,  m: 0,  cur: 'EUR', title: 'German Factory Orders m/m',            impact: 'low' },
+    { d: 0, h: 9,  m: 45, cur: 'USD', title: 'Final Services PMI',                   impact: 'medium' },
+    { d: 0, h: 10, m: 0,  cur: 'USD', title: 'ISM Services PMI',                     impact: 'medium' },
+    { d: 0, h: 19, m: 30, cur: 'AUD', title: 'Trade Balance',                        impact: 'low' },
+    { d: 1, h: 2,  m: 0,  cur: 'GBP', title: 'Claimant Count Change',                impact: 'medium' },
+    { d: 1, h: 8,  m: 30, cur: 'USD', title: 'CPI & Core CPI m/m',                   impact: 'high' },
+    { d: 1, h: 10, m: 0,  cur: 'USD', title: 'JOLTS Job Openings',                   impact: 'medium' },
+    { d: 2, h: 2,  m: 0,  cur: 'GBP', title: 'CPI y/y',                              impact: 'high' },
+    { d: 2, h: 8,  m: 15, cur: 'USD', title: 'ADP Non-Farm Employment Change',       impact: 'medium' },
+    { d: 2, h: 10, m: 30, cur: 'USD', title: 'Crude Oil Inventories',                impact: 'medium' },
+    { d: 2, h: 14, m: 0,  cur: 'USD', title: 'FOMC Statement & Federal Funds Rate',  impact: 'high' },
+    { d: 2, h: 14, m: 30, cur: 'USD', title: 'FOMC Press Conference',                impact: 'high' },
+    { d: 2, h: 19, m: 50, cur: 'JPY', title: 'Core Machinery Orders m/m',            impact: 'low' },
+    { d: 3, h: 8,  m: 15, cur: 'EUR', title: 'ECB Main Refinancing Rate & Statement', impact: 'high' },
+    { d: 3, h: 8,  m: 30, cur: 'USD', title: 'Unemployment Claims',                  impact: 'medium' },
+    { d: 3, h: 21, m: 30, cur: 'AUD', title: 'Retail Sales m/m',                     impact: 'medium' },
+    { d: 4, h: 8,  m: 30, cur: 'USD', title: 'Non-Farm Payrolls & Unemployment Rate', impact: 'high' },
+    { d: 4, h: 8,  m: 30, cur: 'CAD', title: 'Employment Change',                    impact: 'high' },
+    { d: 4, h: 10, m: 0,  cur: 'USD', title: 'Prelim UoM Consumer Sentiment',        impact: 'medium' }
+  ];
+
+  /* ---------------- STATE ---------------- */
+  const STORE_KEY = 'pfnb-settings-v1';
+  const state = {
+    profile: 'ftmo', custom: { before: 3, after: 3 }, instrument: 'ALL',
+    filter: 'high', curs: new Set(CURRENCIES), audio: false, volume: 40, flash: true, tz: 'local',
+    sim: false, simTime: 0, playing: true, speed: 1
+  };
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+    if (s) {
+      if (PROFILES[s.profile]) state.profile = s.profile;
+      if (s.custom && Number.isFinite(s.custom.before) && Number.isFinite(s.custom.after)) state.custom = s.custom;
+      if (INSTRUMENTS[s.instrument]) state.instrument = s.instrument;
+      if (s.filter === 'all' || s.filter === 'high') state.filter = s.filter;
+      if (Array.isArray(s.curs)) state.curs = new Set(s.curs.filter(c => CURRENCIES.includes(c)));
+      state.audio = !!s.audio; state.flash = s.flash !== false;
+      if (Number.isFinite(s.volume)) state.volume = Math.min(100, Math.max(0, s.volume));
+      if (typeof s.tz === 'string') state.tz = s.tz;
+    }
+  } catch (_) { /* ignore */ }
+  function save() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        profile: state.profile, custom: state.custom, instrument: state.instrument, filter: state.filter,
+        curs: [...state.curs], audio: state.audio, volume: state.volume, flash: state.flash, tz: state.tz
+      }));
+    } catch (_) { /* ignore */ }
+  }
+
+  /* ---------------- TIMEZONE HELPERS ---------------- */
+  const partsFmt = {};
+  function zParts(ts, tz) {
+    partsFmt[tz] = partsFmt[tz] || new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' });
+    const o = {};
+    for (const p of partsFmt[tz].formatToParts(new Date(ts))) if (p.type !== 'literal') o[p.type] = +p.value;
+    if (o.hour === 24) o.hour = 0;
+    return o;
+  }
+  function offsetMin(ts, tz) {
+    const p = zParts(ts, tz);
+    return Math.round((Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - (ts - (ts % 1000))) / MIN);
+  }
+  function zonedToUtc(y, mo, d, h, mi, tz) {
+    const guess = Date.UTC(y, mo, d, h, mi);
+    const first = guess - offsetMin(guess, tz) * MIN;
+    return guess - offsetMin(first, tz) * MIN;
+  }
+  const fmtCache = new Map();
+  function fmt(ts, opts) {
+    const key = state.tz + '|' + JSON.stringify(opts);
+    let f = fmtCache.get(key);
+    if (!f) {
+      const o = Object.assign({}, opts);
+      if (state.tz !== 'local') o.timeZone = state.tz;
+      try { f = new Intl.DateTimeFormat(undefined, o); } catch (_) { delete o.timeZone; f = new Intl.DateTimeFormat(undefined, o); }
+      fmtCache.set(key, f);
+    }
+    return f.format(new Date(ts));
+  }
+  const fmtHM  = (ts) => fmt(ts, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const fmtHMS = (ts) => fmt(ts, { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+  const fmtDay = (ts) => fmt(ts, { weekday: 'long', month: 'short', day: 'numeric' });
+  const fmtShortDay = (ts) => fmt(ts, { weekday: 'short', month: 'short', day: 'numeric' });
+  const fmtET = (ts) => new Intl.DateTimeFormat('en-US', { timeZone: ET, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(ts));
+  function tzAbbr(ts) {
+    const o = { timeZoneName: 'short' };
+    if (state.tz !== 'local') o.timeZone = state.tz;
+    try { return (new Intl.DateTimeFormat('en-US', o).formatToParts(new Date(ts)).find(p => p.type === 'timeZoneName') || {}).value || ''; }
+    catch (_) { return ''; }
+  }
+  const pad = (n) => String(n).padStart(2, '0');
+  function fmtCountdown(ms) {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    return (d ? d + 'd ' : '') + pad(h) + ':' + pad(m) + ':' + pad(sec);
+  }
+  function fmtRel(ms) {
+    const future = ms > 0, a = Math.abs(ms), mins = Math.floor(a / MIN);
+    let txt;
+    if (mins < 1) txt = '<1m';
+    else if (mins < 60) txt = mins + 'm';
+    else if (mins < 1440) txt = Math.floor(mins / 60) + 'h ' + pad(mins % 60) + 'm';
+    else txt = Math.floor(mins / 1440) + 'd ' + Math.floor((mins % 1440) / 60) + 'h';
+    return future ? 'in ' + txt : txt + ' ago';
+  }
+  const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  /* ---------------- WEEK / RULE MODEL ---------------- */
+  let W, REL = [], WINS = [];
+  /* ---------------- LIVE DATA ---------------- */
+  const LIVE = { events: null, source: 'demo', fetchedAt: null, error: '' };
+  const FF_DIRECT = 'https://nfs.faireconomy.media/ff_calendar_thisweek.json';
+  function normalize(raw) {
+    if (!Array.isArray(raw)) throw new Error('Unexpected data format');
+    const out = [];
+    for (const r of raw) {
+      const t = Date.parse(r && r.date);
+      if (!Number.isFinite(t) || !r.title) continue;
+      const imp = String(r.impact || '').toLowerCase();
+      out.push({ t, cur: String(r.country || 'All').toUpperCase() === 'ALL' ? 'All' : String(r.country).toUpperCase(),
+        title: String(r.title), impact: ['high', 'medium', 'low', 'holiday'].includes(imp) ? imp : 'low',
+        forecast: r.forecast || '', previous: r.previous || '', actual: r.actual || '' });
+    }
+    if (!out.length) throw new Error('Feed returned no events');
+    return out;
+  }
+  async function getJSON(url) {
+    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 10000);
+    try {
+      const r = await fetch(url, { cache: 'no-store', signal: ctl.signal });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return await r.json();
+    } finally { clearTimeout(to); }
+  }
+  async function loadData(manual) {
+    $('dataSrc').textContent = 'loading calendar…';
+    const tries = [
+      ['repo', 'data/calendar.json?ts=' + Date.now()],   // written by GitHub Action (same origin, no CORS issues)
+      ['direct', FF_DIRECT]                              // fallback: direct feed (may be blocked by CORS/rate limit)
+    ];
+    let errs = [];
+    for (const [src, url] of tries) {
+      try {
+        const j = await getJSON(url);
+        const raw = Array.isArray(j) ? j : j.events;
+        LIVE.events = normalize(raw);
+        LIVE.source = src;
+        LIVE.fetchedAt = (j && j.fetched_at) ? Date.parse(j.fetched_at) : Date.now();
+        LIVE.error = '';
+        break;
+      } catch (e) { errs.push(src + ': ' + (e.message || e)); }
+    }
+    if (LIVE.source === 'demo' || (errs.length === 2)) {
+      if (!LIVE.events) { LIVE.source = 'demo'; LIVE.error = errs.join(' | '); }
+    }
+    const known = new Set(['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'NZD', 'CNY']);
+    (LIVE.events || []).forEach(e => known.add(e.cur));
+    const added = [...known].filter(c => !CURRENCIES.includes(c));
+    CURRENCIES = [...known];
+    added.forEach(c => state.curs.add(c));
+    renderDataSrc();
+    W = buildWeek();
+    recompute();
+    if (manual) toast(LIVE.source === 'demo' ? '⚠️ Live data unavailable — showing DEMO events.' : '✅ Calendar refreshed (' + LIVE.events.length + ' events).', LIVE.source === 'demo' ? 'amber' : 'slate');
+  }
+  function renderDataSrc() {
+    const el = $('dataSrc');
+    if (LIVE.source === 'demo') {
+      el.innerHTML = '<span class="text-amber-400 font-semibold">DEMO data</span> — live feed unavailable';
+      el.title = LIVE.error;
+    } else {
+      const age = LIVE.fetchedAt ? Math.round((Date.now() - LIVE.fetchedAt) / MIN) : 0;
+      el.innerHTML = '<span class="text-emerald-400 font-semibold">LIVE</span> Forex Factory calendar · updated ' + (age < 1 ? 'just now' : age < 120 ? age + 'm ago' : Math.round(age / 60) + 'h ago');
+      el.title = LIVE.source === 'repo' ? 'Loaded from data/calendar.json (GitHub Action)' : 'Loaded directly from ' + FF_DIRECT;
+    }
+  }
+
+  function buildWeek() {
+    const anchor = LIVE.events && LIVE.events.length ? LIVE.events[Math.floor(LIVE.events.length / 2)].t : Date.now();
+    const p = zParts(anchor, ET);
+    const dow = new Date(Date.UTC(p.year, p.month - 1, p.day)).getUTCDay();
+    const delta = LIVE.events ? (dow === 0 ? 1 : 1 - dow) : (dow === 6 ? 2 : dow === 0 ? 1 : 1 - dow); // weekends roll to the upcoming week
+    const mon = new Date(Date.UTC(p.year, p.month - 1, p.day + delta));
+    const Y = mon.getUTCFullYear(), M = mon.getUTCMonth(), D = mon.getUTCDate();
+    const events = (LIVE.events || DEMO_SEED.map((e) => Object.assign({ t: zonedToUtc(Y, M, D + e.d, e.h, e.m, ET), forecast: '', previous: '' }, e)))
+      .map((e, i) => Object.assign({ id: i }, e)).sort((a, b) => a.t - b.t || a.id - b.id);
+    let start = zonedToUtc(Y, M, D - 1, 17, 0, ET), end = zonedToUtc(Y, M, D + 4, 17, 0, ET);
+    if (events.length) { start = Math.min(start, events[0].t - 3600000); end = Math.max(end, events[events.length - 1].t + 3600000); }
+    return { events, Y, M, D, monday: zonedToUtc(Y, M, D, 0, 0, ET), start, end };
+  }
+  function rule() {
+    return state.profile === 'custom' ? state.custom : { before: PROFILES[state.profile].before, after: PROFILES[state.profile].after };
+  }
+  function affects(cur) { const i = INSTRUMENTS[state.instrument]; return !i || !i.cur || cur === 'All' || i.cur.includes(cur); }
+  function computeWindows() {
+    const r = rule();
+    REL = W.events.filter(e => e.impact === 'high' && affects(e.cur));
+    const list = REL.map(e => ({ start: e.t - r.before * MIN, end: e.t + r.after * MIN, events: [e] })).sort((a, b) => a.start - b.start);
+    const out = [];
+    for (const w of list) {
+      const last = out[out.length - 1];
+      if (last && w.start <= last.end) { last.end = Math.max(last.end, w.end); last.events.push(...w.events); }
+      else out.push({ start: w.start, end: w.end, events: [...w.events] });
+    }
+    WINS = out.filter(w => w.end > w.start);
+  }
+  const now = () => (state.sim ? state.simTime : Date.now());
+  function getStatus(n) {
+    const active = WINS.find(w => n >= w.start && n < w.end) || null;
+    const nextWin = WINS.find(w => w.start > n) || null;
+    const nextEvent = REL.find(e => e.t > n) || null;
+    let s = 'safe';
+    if (active) s = 'blackout';
+    else if (nextWin && nextWin.start - n <= MIN) s = 'imminent';
+    return { s, active, nextWin, nextEvent };
+  }
+
+  /* ---------------- AUDIO ---------------- */
+  let actx = null;
+  function ensureAudio() {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === 'suspended') actx.resume();
+    } catch (_) { actx = null; }
+    return actx;
+  }
+  function playChime() {
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    const vol = Math.max(0.0002, (state.volume / 100) * 0.3);
+    const t0 = ctx.currentTime + 0.02;
+    [[880, 0], [1318.5, 0.2], [880, 0.4]].forEach(([f, dt]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0 + dt);
+      g.gain.exponentialRampToValueAtTime(vol, t0 + dt + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dt + 0.8);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(t0 + dt); o.stop(t0 + dt + 0.85);
+    });
+  }
+  // Browsers block audio until a user gesture: resume on first interaction.
+  document.addEventListener('pointerdown', () => { if (state.audio) ensureAudio(); }, { once: true });
+
+  /* ---------------- ALERTS ---------------- */
+  let chimed = new Set();
+  function resetAlerts(n) { chimed = new Set(WINS.filter(w => n >= w.start - MIN).map(w => w.start)); }
+  function checkAlerts(n) {
+    for (const w of WINS) {
+      if (n >= w.start - MIN && n < w.end && !chimed.has(w.start)) {
+        chimed.add(w.start);
+        const e = w.events[0];
+        const label = e.cur + ' ' + e.title + (w.events.length > 1 ? ' +' + (w.events.length - 1) : '');
+        if (n < w.start) toast('⚠️ Blackout begins in ' + Math.ceil((w.start - n) / 1000) + ' s — ' + label, 'amber');
+        else toast('⛔ News blackout active — ' + label, 'red');
+        if (state.audio) playChime();
+      }
+    }
+  }
+  function toast(msg, tone) {
+    const el = document.createElement('div');
+    el.setAttribute('role', 'status');
+    el.className = 'rounded-xl border px-4 py-3 text-sm shadow-2xl backdrop-blur transition-opacity duration-500 ' +
+      (tone === 'red' ? 'border-red-500/60 bg-red-950/90 text-red-100' : tone === 'amber' ? 'border-amber-400/60 bg-amber-950/90 text-amber-100' : 'border-slate-600 bg-slate-900/95 text-slate-100');
+    el.textContent = msg;
+    $('toasts').appendChild(el);
+    while ($('toasts').children.length > 4) $('toasts').firstChild.remove();
+    setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 500); }, 5500);
+  }
+
+  /* ---------------- RENDER: SETTINGS ---------------- */
+  function renderSettings() {
+    const p = PROFILES[state.profile], r = rule(), custom = state.profile === 'custom';
+    $('profileSel').value = state.profile;
+    $('profileNote').textContent = p.note;
+    $('beforeInp').disabled = $('afterInp').disabled = !custom;
+    if (document.activeElement !== $('beforeInp')) $('beforeInp').value = r.before;
+    if (document.activeElement !== $('afterInp')) $('afterInp').value = r.after;
+    $('ruleSummary').textContent = '−' + r.before + ' min / +' + r.after + ' min';
+    $('instSel').value = state.instrument;
+    const i = INSTRUMENTS[state.instrument];
+    $('instCur').textContent = i.cur ? i.cur.join(', ') : 'all currencies';
+    $('audioSw').setAttribute('aria-checked', String(state.audio));
+    $('flashSw').setAttribute('aria-checked', String(state.flash));
+    $('volInp').value = state.volume;
+    if ([...$('tzSel').options].some(o => o.value === state.tz)) $('tzSel').value = state.tz; else state.tz = 'local';
+    document.querySelectorAll('[data-filter]').forEach(b => b.classList.toggle('seg-on', b.dataset.filter === state.filter));
+    $('curChips').innerHTML = CURRENCIES.map(c => {
+      const on = state.curs.has(c);
+      return '<button type="button" class="chip ' + (on ? curStyle(c) : 'border-slate-700 text-slate-500 bg-transparent') +
+        '" data-cur="' + c + '" aria-pressed="' + on + '">' + c + '</button>';
+    }).join('') + '<button type="button" class="chip border-slate-700 text-slate-400 hover:text-white" data-cur="__all">Reset</button>';
+    $('statRule').textContent = '±' + (r.before === r.after ? r.before : r.before + '/' + r.after) + ' min';
+    $('statScope').textContent = state.instrument === 'ALL' ? 'All' : state.instrument;
+  }
+
+  /* ---------------- RENDER: TIMELINE ---------------- */
+  function drawTimeline() {
+    const span = W.end - W.start, pct = (t) => ((t - W.start) / span) * 100;
+    let html = '', labels = '';
+    ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].forEach((name, d) => {
+      const t = zonedToUtc(W.Y, W.M, W.D + d, 0, 0, ET);
+      html += '<div class="absolute top-0 bottom-0 w-px bg-slate-800" style="left:' + pct(t) + '%"></div>';
+      labels += '<span class="absolute -translate-x-1/2" style="left:' + pct(t + 12 * 3600000) + '%">' + name + '</span>';
+    });
+    W.events.forEach(e => {
+      if (e.impact === 'high' && affects(e.cur)) return;
+      const c = e.impact === 'high' ? 'bg-slate-500' : e.impact === 'medium' ? 'bg-orange-400/60' : 'bg-yellow-300/40';
+      html += '<div class="absolute bottom-0 h-2 w-px ' + c + '" style="left:' + pct(e.t) + '%"></div>';
+    });
+    WINS.forEach(w => {
+      const title = w.events.map(e => e.cur + ' ' + e.title).join(' · ');
+      html += '<div class="absolute top-1.5 bottom-1.5 rounded-sm bg-red-500/80" style="left:' + pct(w.start) + '%;width:max(3px,' + (pct(w.end) - pct(w.start)) + '%)" title="' + esc(title) + '"></div>';
+    });
+    $('tlMarks').innerHTML = html;
+    $('dayLabels').innerHTML = labels;
+    $('slider').min = 0;
+    $('slider').max = Math.round(span / MIN);
+    $('slider').step = 1;
+    $('weekLabel').textContent = (LIVE.source === 'demo' ? '[DEMO] ' : '') + 'Week of ' + fmtShortDay(W.monday + 12 * 3600000) + ' · ' + W.events.length + ' events · ' + W.events.filter(e => e.impact === 'high').length + ' red folder';
+  }
+
+  /* ---------------- RENDER: LIVE PARTS ---------------- */
+  let lastStatus = '', lastTitle = '', lastCalSig = '', sliderDragging = false;
+
+  function renderClock(n) {
+    $('clock').textContent = fmtHMS(n);
+    $('clockDate').textContent = fmtDay(n) + ' · ' + tzAbbr(n);
+    const b = $('modeBadge');
+    b.textContent = state.sim ? 'SIMULATED · ' + state.speed + '×' + (state.playing ? '' : ' · PAUSED') : '● LIVE';
+    b.className = 'rounded-full px-2.5 py-1 text-[11px] font-bold tracking-widest border ' +
+      (state.sim ? 'border-violet-400/50 bg-violet-500/15 text-violet-300' : 'border-emerald-400/50 bg-emerald-500/10 text-emerald-300');
+  }
+
+  function renderStatus(n, st) {
+    const card = $('statusCard');
+    const key = st.s + '|' + state.flash;
+    if (key !== lastStatus) {
+      lastStatus = key;
+      const base = 'rounded-2xl p-6 border transition-colors ';
+      const cls = {
+        safe: 'bg-emerald-950/50 border-emerald-500/40 text-emerald-50',
+        imminent: (state.flash ? 'flash-amber' : 'bg-amber-700') + ' border-amber-300 text-white',
+        blackout: (state.flash ? 'flash-red' : 'bg-red-800') + ' border-red-300 text-white'
+      }[st.s];
+      card.className = base + cls;
+      $('statusLabel').className = 'mt-3 text-3xl sm:text-4xl font-black tracking-tight ' + (st.s === 'safe' ? 'text-emerald-300' : 'text-white');
+      $('statusDot').className = 'h-2.5 w-2.5 rounded-full ' + (st.s === 'safe' ? 'bg-emerald-400 animate-pulse' : 'bg-white');
+      document.body.classList.toggle('screen-alert', st.s === 'blackout' && state.flash);
+    }
+    const names = (w) => w.events.map(e => e.cur + ' ' + e.title).join(' · ');
+    if (st.s === 'blackout') {
+      $('statusLabel').textContent = '⛔ NEWS BLACKOUT — NO TRADING';
+      $('statusSub').textContent = names(st.active) + ' · window closes in ' + fmtCountdown(st.active.end - n);
+      $('statusBarWrap').classList.remove('hidden');
+      $('statusBar').style.width = Math.min(100, ((n - st.active.start) / (st.active.end - st.active.start)) * 100) + '%';
+      $('winStart').textContent = fmtHMS(st.active.start);
+      $('winEnd').textContent = fmtHMS(st.active.end);
+    } else if (st.s === 'imminent') {
+      $('statusLabel').textContent = '⚠️ BLACKOUT IMMINENT';
+      $('statusSub').textContent = 'Window opens in ' + Math.ceil((st.nextWin.start - n) / 1000) + ' s — avoid opening or closing positions on affected instruments. (' + names(st.nextWin) + ')';
+      $('statusBarWrap').classList.remove('hidden');
+      $('statusBar').style.width = Math.min(100, ((MIN - (st.nextWin.start - n)) / MIN) * 100) + '%';
+      $('winStart').textContent = 'Warning';
+      $('winEnd').textContent = 'Blackout ' + fmtHMS(st.nextWin.start);
+    } else {
+      $('statusLabel').textContent = '✅ SAFE TO TRADE';
+      $('statusSub').textContent = st.nextWin
+        ? 'Next blackout starts in ' + fmtCountdown(st.nextWin.start - n) + ' (' + fmtShortDay(st.nextWin.start) + ', ' + fmtHM(st.nextWin.start) + ')'
+        : 'No more blackout windows for this scope this week.';
+      $('statusBarWrap').classList.add('hidden');
+    }
+    $('statLeft').textContent = WINS.filter(w => w.end > n).length + ' / ' + WINS.length;
+  }
+
+  function renderCountdown(n, st) {
+    const e = st.nextEvent, r = rule();
+    const cd = $('countdown');
+    if (!e) {
+      cd.textContent = '--:--:--';
+      cd.className = 'mono text-5xl sm:text-6xl font-bold text-slate-500 mt-3 leading-none';
+      $('nextCur').className = 'hidden';
+      $('nextName').textContent = 'No more high-impact events this week';
+      $('nextMeta').textContent = '';
+      $('nextWin').textContent = 'Use the simulator to replay the week.';
+      return;
+    }
+    const ms = e.t - n;
+    cd.textContent = fmtCountdown(ms);
+    cd.className = 'mono text-5xl sm:text-6xl font-bold mt-3 leading-none ' + (ms <= MIN ? 'text-red-400' : ms <= 15 * MIN ? 'text-amber-300' : 'text-white');
+    const same = REL.filter(x => x.t === e.t);
+    $('nextCur').className = 'chip ' + curStyle(e.cur);
+    $('nextCur').textContent = e.cur;
+    $('nextName').textContent = same.map(x => (x.cur !== e.cur ? x.cur + ' ' : '') + x.title).join(' + ');
+    $('nextMeta').textContent = fmtDay(e.t) + ' · ' + fmtHM(e.t) + ' ' + tzAbbr(e.t) + (state.tz !== ET ? ' (' + fmtET(e.t) + ' ET)' : '');
+    $('nextWin').innerHTML = 'Blackout window: <span class="mono text-slate-200">' + fmtHM(e.t - r.before * MIN) + ' – ' + fmtHM(e.t + r.after * MIN) + '</span>' +
+      ' <span class="text-slate-500">(−' + r.before + ' / +' + r.after + ' min)</span>';
+  }
+
+  function renderSim(n) {
+    const span = W.end - W.start;
+    const p = Math.min(100, Math.max(0, ((n - W.start) / span) * 100));
+    $('tlCursor').style.left = 'calc(' + p + '% - 1px)';
+    if (!sliderDragging) $('slider').value = Math.round(Math.min(span, Math.max(0, n - W.start)) / MIN);
+    const t = $('simToggle');
+    t.textContent = '⏱ Simulate Time: ' + (state.sim ? 'ON' : 'OFF');
+    t.className = 'btn ' + (state.sim ? 'btn-on' : '');
+    $('playBtn').textContent = state.sim && state.playing ? '⏸ Pause' : '▶ Play';
+    document.querySelectorAll('[data-speed]').forEach(b => b.classList.toggle('seg-on', +b.dataset.speed === state.speed));
+    $('liveBtn').disabled = !state.sim;
+    $('liveBtn').classList.toggle('opacity-40', !state.sim);
+  }
+
+  function renderCalendar(n, st) {
+    const r = rule();
+    const sig = [state.filter, [...state.curs].join(), state.instrument, r.before, r.after, state.tz, Math.floor(n / 15000), st.nextEvent && st.nextEvent.t, st.active && st.active.start].join('|');
+    if (sig === lastCalSig) return;
+    lastCalSig = sig;
+    $('tzAbbr').textContent = '(' + tzAbbr(n) + ')';
+    const rows = W.events.filter(e => (state.filter === 'all' || e.impact === 'high') && state.curs.has(e.cur));
+    $('calEmpty').classList.toggle('hidden', rows.length > 0);
+    let html = '', lastDay = '';
+    for (const e of rows) {
+      const day = fmtDay(e.t);
+      if (day !== lastDay) {
+        lastDay = day;
+        html += '<tr><td colspan="7" class="pt-4 pb-1.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">' + esc(day) + '</td></tr>';
+      }
+      const rel = e.impact === 'high' && affects(e.cur);
+      const ws = e.t - r.before * MIN, we = e.t + r.after * MIN;
+      let status;
+      if (rel) status = n >= ws && n < we ? 'active' : n >= we ? 'passed' : (st.nextEvent && e.t === st.nextEvent.t ? 'next' : 'upcoming');
+      else status = n >= e.t ? 'passed' : 'upcoming';
+      const rowCls = status === 'active' ? 'bg-red-950/70 ring-1 ring-inset ring-red-500/60'
+        : status === 'next' ? 'bg-sky-950/50 ring-1 ring-inset ring-sky-500/40'
+        : status === 'passed' ? 'opacity-40' : 'hover:bg-slate-800/40';
+      const pill = status === 'active' ? '<span class="rounded-full bg-red-600 text-white px-2 py-0.5 text-[10px] font-bold tracking-wider animate-pulse">BLACKOUT</span>'
+        : status === 'next' ? '<span class="rounded-full bg-sky-600 text-white px-2 py-0.5 text-[10px] font-bold tracking-wider">NEXT · ' + fmtRel(e.t - n).replace('in ', '') + '</span>'
+        : status === 'passed' ? '<span class="text-[11px] text-slate-500">Released ' + fmtRel(e.t - n) + '</span>'
+        : '<span class="text-[11px] text-slate-400 mono">' + fmtRel(e.t - n) + '</span>';
+      const win = rel ? '<span class="mono text-xs text-slate-300">' + fmtHM(ws) + ' – ' + fmtHM(we) + '</span>'
+        : e.impact === 'high' ? '<span class="text-[11px] text-slate-500">Outside ' + esc(state.instrument) + ' scope</span>'
+        : '<span class="text-slate-600">—</span>';
+      const imp = IMPACT[e.impact];
+      html += '<tr class="border-b border-slate-800/70 ' + rowCls + '">' +
+        '<td class="py-2 px-2 mono text-slate-100 whitespace-nowrap">' + fmtHM(e.t) + '</td>' +
+        '<td class="py-2 px-2"><span class="chip ' + curStyle(e.cur) + '">' + e.cur + '</span></td>' +
+        '<td class="py-2 px-2 text-slate-100 ' + (e.impact === 'high' ? 'font-semibold' : '') + '">' + esc(e.title) + '</td>' +
+        '<td class="py-2 px-2"><span class="inline-flex items-center gap-1.5 text-xs ' + imp.cls + '">' +
+          '<svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.38a1.5 1.5 0 0 1 1.06.44L11.5 7h8A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>' +
+          imp.label + '</span></td>' +
+        '<td class="py-2 px-2 mono text-xs text-slate-400 whitespace-nowrap">' + (e.actual ? '<span class="text-white">' + esc(e.actual) + '</span> · ' : '') + esc(e.forecast || '—') + ' / ' + esc(e.previous || '—') + '</td>' +
+        '<td class="py-2 px-2 whitespace-nowrap">' + win + '</td>' +
+        '<td class="py-2 px-2 text-right whitespace-nowrap">' + pill + '</td></tr>';
+    }
+    $('calBody').innerHTML = html;
+  }
+
+  function renderTitle(n, st) {
+    let t;
+    if (st.s === 'blackout') t = '⛔ BLACKOUT ' + fmtCountdown(st.active.end - n) + ' · News Guard';
+    else if (st.s === 'imminent') t = '⚠️ Blackout in ' + Math.ceil((st.nextWin.start - n) / 1000) + 's · News Guard';
+    else t = st.nextEvent ? '✅ ' + fmtCountdown(st.nextEvent.t - n) + ' → ' + st.nextEvent.cur + ' ' + st.nextEvent.title : '✅ SAFE · News Guard';
+    if (t !== lastTitle) { lastTitle = t; document.title = t; }
+  }
+
+  function render() {
+    const n = now();
+    checkAlerts(n);
+    const st = getStatus(n);
+    renderClock(n);
+    renderStatus(n, st);
+    renderCountdown(n, st);
+    renderSim(n);
+    renderCalendar(n, st);
+    renderTitle(n, st);
+  }
+
+  function recompute() {
+    computeWindows();
+    drawTimeline();
+    lastCalSig = ''; lastStatus = '';
+    resetAlerts(now());
+    renderSettings();
+    save();
+    render();
+  }
+
+  /* ---------------- SIMULATION ---------------- */
+  function setSimTime(ts) {
+    state.sim = true;
+    state.simTime = Math.min(W.end, Math.max(W.start, ts));
+    resetAlerts(state.simTime);
+    lastCalSig = '';
+    render();
+  }
+  function jump(kind) {
+    const n = now();
+    if (['preBlackout', 'inBlackout', 'nextEvent'].includes(kind) && !WINS.length) { toast('No blackout windows for the current scope.', 'slate'); return; }
+    if (kind === 'preBlackout') { const w = WINS.find(w => w.start - 90000 > n) || WINS[0]; setSimTime(w.start - 90000); }
+    else if (kind === 'inBlackout') { const w = WINS.find(w => w.start > n) || WINS[0]; setSimTime(w.start + 1000); }
+    else if (kind === 'nextEvent') { const e = REL.find(e => e.t - 10000 > n) || REL[0]; setSimTime(e.t - 10000); }
+    else { const mins = +kind; if (Number.isFinite(mins)) setSimTime(n + mins * MIN); }
+  }
+
+  /* ---------------- WIRING ---------------- */
+  $('instSel').innerHTML = Object.entries(INSTRUMENTS).map(([k, v]) => '<option value="' + k + '">' + esc(v.label) + '</option>').join('');
+
+  $('profileSel').addEventListener('change', (e) => { state.profile = e.target.value; $('customMsg').classList.add('hidden'); recompute(); });
+  function onCustomInput() {
+    const b = $('beforeInp').value.trim(), a = $('afterInp').value.trim();
+    const bi = Number(b), ai = Number(a);
+    const ok = (v, s) => s !== '' && Number.isInteger(v) && v >= 0 && v <= 120;
+    if (!ok(bi, b) || !ok(ai, a)) {
+      $('customMsg').textContent = 'Enter whole minutes between 0 and 120.';
+      $('customMsg').classList.remove('hidden');
+      return;
+    }
+    $('customMsg').classList.toggle('hidden', !(bi === 0 && ai === 0));
+    if (bi === 0 && ai === 0) $('customMsg').textContent = 'A 0/0 window means no blackout will be enforced.';
+    state.custom = { before: bi, after: ai };
+    recompute();
+  }
+  $('beforeInp').addEventListener('input', onCustomInput);
+  $('afterInp').addEventListener('input', onCustomInput);
+  $('instSel').addEventListener('change', (e) => { state.instrument = e.target.value; recompute(); });
+  $('tzSel').addEventListener('change', (e) => { state.tz = e.target.value; fmtCache.clear(); recompute(); });
+
+  $('audioSw').addEventListener('click', () => {
+    state.audio = !state.audio;
+    if (state.audio) { ensureAudio(); toast('🔔 Chime enabled — plays 60 s before each blackout.', 'slate'); }
+    renderSettings(); save();
+  });
+  $('flashSw').addEventListener('click', () => { state.flash = !state.flash; lastStatus = ''; renderSettings(); save(); render(); });
+  $('volInp').addEventListener('input', (e) => { state.volume = Math.min(100, Math.max(0, +e.target.value || 0)); save(); });
+  $('testChime').addEventListener('click', playChime);
+
+  document.querySelectorAll('[data-filter]').forEach(b => b.addEventListener('click', () => { state.filter = b.dataset.filter; renderSettings(); save(); lastCalSig = ''; render(); }));
+  $('curChips').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-cur]');
+    if (!b) return;
+    const c = b.dataset.cur;
+    if (c === '__all') state.curs = new Set(CURRENCIES);
+    else if (state.curs.has(c)) state.curs.delete(c); else state.curs.add(c);
+    renderSettings(); save(); lastCalSig = ''; render();
+  });
+
+  $('simToggle').addEventListener('click', () => {
+    if (state.sim) { state.sim = false; resetAlerts(Date.now()); lastCalSig = ''; render(); }
+    else { state.playing = true; setSimTime(Date.now()); }
+  });
+  $('playBtn').addEventListener('click', () => {
+    if (!state.sim) { state.playing = true; setSimTime(Date.now()); return; }
+    state.playing = !state.playing; render();
+  });
+  document.querySelectorAll('[data-speed]').forEach(b => b.addEventListener('click', () => {
+    state.speed = +b.dataset.speed;
+    if (!state.sim) { state.playing = true; setSimTime(Date.now()); } else render();
+  }));
+  document.querySelectorAll('[data-jump]').forEach(b => b.addEventListener('click', () => jump(b.dataset.jump)));
+  $('liveBtn').addEventListener('click', () => { state.sim = false; resetAlerts(Date.now()); lastCalSig = ''; render(); });
+
+  const slider = $('slider');
+  slider.addEventListener('pointerdown', () => { sliderDragging = true; });
+  ['pointerup', 'pointercancel', 'change', 'blur'].forEach(ev => slider.addEventListener(ev, () => { sliderDragging = false; }));
+  slider.addEventListener('input', () => setSimTime(W.start + (+slider.value || 0) * MIN));
+  $('timeline').addEventListener('click', (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const f = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    setSimTime(W.start + f * (W.end - W.start));
+  });
+
+  /* ---------------- LOOP ---------------- */
+  let lastPerf = performance.now(), lastWeekCheck = Date.now(), lastSrcMin = 0;
+  function tick() {
+    const p = performance.now(), dt = p - lastPerf;
+    lastPerf = p;
+    if (state.sim && state.playing) {
+      state.simTime += dt * state.speed;
+      if (state.simTime >= W.end) { state.simTime = W.end; state.playing = false; toast('Simulation reached the end of the trading week.', 'slate'); }
+    }
+    if (Date.now() - lastWeekCheck > 15 * MIN) { lastWeekCheck = Date.now(); loadData(false); }
+    else if (Math.floor(Date.now() / MIN) !== lastSrcMin) { lastSrcMin = Math.floor(Date.now() / MIN); renderDataSrc(); }
+    render();
+  }
+
+  W = buildWeek();
+  state.simTime = Date.now();
+  computeWindows();
+  drawTimeline();
+  resetAlerts(now());
+  renderSettings();
+  render();
+  setInterval(tick, 200);
+  $('refreshBtn').addEventListener('click', () => { lastWeekCheck = Date.now(); loadData(true); });
+  loadData(false);
+})();
+</script>
+</body>
+</html>
