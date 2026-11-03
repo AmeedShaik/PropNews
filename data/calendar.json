@@ -1,6 +1,6 @@
 {
  "source": "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
- "fetched_at": "2026-11-03T18:38:02.890025+00:00",
+ "fetched_at": "2026-11-03T23:56:38.651588+00:00",
  "count": 115,
  "events": [
   {
@@ -318,7 +318,7 @@
   {
    "title": "German Buba President Nagel Speaks",
    "country": "EUR",
-   "date": "2026-11-03T12:00:00-05:00",
+   "date": "2026-11-03T13:00:00-05:00",
    "impact": "Low",
    "forecast": "",
    "previous": ""
@@ -504,7 +504,7 @@
    "country": "USD",
    "date": "2026-11-04T10:30:00-05:00",
    "impact": "Low",
-   "forecast": "-0.1M",
+   "forecast": "-1.7M",
    "previous": "-1.9M"
   },
   {
@@ -712,7 +712,7 @@
    "country": "USD",
    "date": "2026-11-05T10:30:00-05:00",
    "impact": "Low",
-   "forecast": "",
+   "forecast": "81B",
    "previous": "80B"
   },
   {
