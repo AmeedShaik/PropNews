@@ -39,7 +39,9 @@ jobs:
           git add data/calendar.json
           git diff --cached --quiet || (git commit -m "chore: update calendar data [skip ci]" && git push)
 
-      - uses: actions/configure-pages@v5
+        **  - uses: actions/configure-pages**5
+        with:
+          enablem**t: true
 
       - name: Build site folder
         run: |
