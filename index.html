@@ -303,7 +303,7 @@
     NZD: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
     CNY: 'bg-amber-500/15 text-amber-300 border-amber-500/30'
   };
-  const curStyle = (c) => curStyle(c) || 'bg-slate-500/15 text-slate-300 border-slate-500/30';
+  const curStyle = (c) => CUR_STYLE[c] || 'bg-slate-500/15 text-slate-300 border-slate-500/30';
   const IMPACT = {
     high:   { cls: 'text-red-500',    label: 'Red Folder' },
     medium: { cls: 'text-orange-400', label: 'Medium' },
