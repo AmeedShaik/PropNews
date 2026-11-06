@@ -1,7 +1,7 @@
 {
  "source": "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
- "fetched_at": "2026-11-06T11:24:35.887945+00:00",
- "count": 115,
+ "fetched_at": "2026-11-06T18:19:37.838978+00:00",
+ "count": 116,
  "events": [
   {
    "title": "Daylight Saving Time Shift",
@@ -903,6 +903,14 @@
    "title": "FOMC Member Bowman Speaks",
    "country": "USD",
    "date": "2026-11-06T12:15:00-05:00",
+   "impact": "Low",
+   "forecast": "",
+   "previous": ""
+  },
+  {
+   "title": "FOMC Member Daly Speaks",
+   "country": "USD",
+   "date": "2026-11-06T13:00:00-05:00",
    "impact": "Low",
    "forecast": "",
    "previous": ""
