@@ -1,0 +1,71 @@
+{
+ "source": "BLS public API",
+ "fetched_at": "2026-11-10T17:17:48.100655+00:00",
+ "items": [
+  {
+   "titles": [
+    "CPI m/m"
+   ],
+   "period": "2026-10",
+   "actual": "0.4%",
+   "first_seen": "2026-11-10T17:17:48.100655+00:00"
+  },
+  {
+   "titles": [
+    "Core CPI m/m"
+   ],
+   "period": "2026-10",
+   "actual": "0.3%",
+   "first_seen": "2026-11-10T17:17:48.100655+00:00"
+  },
+  {
+   "titles": [
+    "Non-Farm Employment Change"
+   ],
+   "period": "2026-10",
+   "actual": "165K",
+   "first_seen": "2026-11-10T17:17:48.100655+00:00"
+  },
+  {
+   "titles": [
+    "Unemployment Rate"
+   ],
+   "period": "2026-10",
+   "actual": "4.1%",
+   "first_seen": "2026-11-10T17:17:48.100655+00:00"
+  },
+  {
+   "titles": [
+    "Average Hourly Earnings m/m"
+   ],
+   "period": "2026-10",
+   "actual": "0.4%",
+   "first_seen": "2026-11-10T17:17:48.100655+00:00"
+  },
+  {
+   "titles": [
+    "PPI m/m"
+   ],
+   "period": "2026-09",
+   "actual": "1.3%",
+   "first_seen": "2026-11-10T17:17:48.100655+00:00"
+  },
+  {
+   "titles": [
+    "Core PPI m/m"
+   ],
+   "period": "2026-09",
+   "actual": "0.7%",
+   "first_seen": "2026-11-10T17:17:48.100655+00:00"
+  }
+ ],
+ "first_seen": {
+  "CPI m/m|2026-10": "2026-11-10T17:17:48.100655+00:00",
+  "Core CPI m/m|2026-10": "2026-11-10T17:17:48.100655+00:00",
+  "Non-Farm Employment Change|2026-10": "2026-11-10T17:17:48.100655+00:00",
+  "Unemployment Rate|2026-10": "2026-11-10T17:17:48.100655+00:00",
+  "Average Hourly Earnings m/m|2026-10": "2026-11-10T17:17:48.100655+00:00",
+  "PPI m/m|2026-09": "2026-11-10T17:17:48.100655+00:00",
+  "Core PPI m/m|2026-09": "2026-11-10T17:17:48.100655+00:00"
+ }
+}
