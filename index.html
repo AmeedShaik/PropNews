@@ -912,44 +912,42 @@
   loadData(false);
 })();
 </script>
-<!-- ===================== NEWS BIAS PANEL v3 (paste just above </body>) ===================== -->
+<!-- ===================== NEWS BIAS PANEL v4 · MULTI-ASSET (paste just above </body>) ===================== -->
 <template id="nbTpl">
   <section id="newsBias" class="card">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h2 class="card-title">News Bias · XAUUSD</h2>
-        <p class="text-xs text-slate-400">Actuals: <span id="nbAuto" class="text-slate-300">checking…</span> · Markets: <span id="nbMktSrc" class="text-slate-300">checking…</span>. Bias = Actual vs Forecast.</p>
+        <h2 class="card-title">News Bias · Multi-Asset</h2>
+        <p class="text-xs text-slate-400">Actuals: <span id="nbAuto" class="text-slate-300">checking…</span> · Markets: <span id="nbMktSrc" class="text-slate-300">checking…</span> · Bias = Actual vs Forecast</p>
       </div>
-      <div class="flex items-center gap-2">
-        <label for="nbScope" class="text-xs text-slate-400">Show</label>
-        <select id="nbScope" class="inp !w-auto !py-1.5 text-xs">
-          <option value="usd">USD high + medium</option>
-          <option value="usdhigh">USD red folder only</option>
-          <option value="all">All currencies (high)</option>
+      <div class="flex flex-wrap items-center gap-2">
+        <label for="nbFocus" class="text-xs text-slate-400">Focus</label>
+        <select id="nbFocus" class="inp !w-auto !py-1.5 text-xs"></select>
+        <select id="nbScope" class="inp !w-auto !py-1.5 text-xs" aria-label="Events shown">
+          <option value="hm">All · high + medium</option>
+          <option value="high">All · red folder</option>
+          <option value="focus">Focus drivers only</option>
+          <option value="usd">USD only</option>
         </select>
         <select id="nbDay" class="inp !w-auto !py-1.5 text-xs" aria-label="Day"></select>
       </div>
     </div>
 
-    <!-- Live market strip (TradingView widgets: visual, always live) -->
-    <div class="grid gap-3 md:grid-cols-3 mt-4" id="nbWidgets">
-      <div class="rounded-xl border border-slate-800 bg-slate-950/60 overflow-hidden">
-        <div class="flex justify-between px-3 pt-2 text-[11px]"><span class="font-semibold text-slate-300">DXY</span><span id="nbDxyChg" class="mono text-slate-500"></span></div>
-        <div class="tv h-[150px]" data-sym="TVC:DXY"></div>
-      </div>
-      <div class="rounded-xl border border-slate-800 bg-slate-950/60 overflow-hidden">
-        <div class="flex justify-between px-3 pt-2 text-[11px]"><span class="font-semibold text-slate-300">US10Y</span><span id="nbYldChg" class="mono text-slate-500"></span></div>
-        <div class="tv h-[150px]" data-sym="TVC:US10Y"></div>
-      </div>
-      <div class="rounded-xl border border-slate-800 bg-slate-950/60 overflow-hidden">
-        <div class="flex justify-between px-3 pt-2 text-[11px]"><span class="font-semibold text-slate-300">XAUUSD</span><span id="nbGoldChg" class="mono text-slate-500"></span></div>
-        <div class="tv h-[150px]" data-sym="OANDA:XAUUSD"></div>
-      </div>
+    <!-- Currency / oil strength -->
+    <div class="mt-4">
+      <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">News strength today <span class="normal-case text-slate-600">(− weaker · + stronger)</span></div>
+      <div id="nbStrength" class="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2"></div>
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] mt-4">
+    <!-- Asset bias grid -->
+    <div class="mt-4">
+      <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">Asset bias · click a card to focus</div>
+      <div id="nbAssets" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-2"></div>
+    </div>
+
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] mt-5">
       <div class="overflow-x-auto">
-        <table class="w-full text-sm min-w-[640px]">
+        <table class="w-full text-sm min-w-[680px]">
           <thead>
             <tr class="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
               <th class="py-2 px-2 font-medium">Time</th>
@@ -958,7 +956,7 @@
               <th class="py-2 px-2 font-medium">Prev</th>
               <th class="py-2 px-2 font-medium">Actual</th>
               <th class="py-2 px-2 font-medium">Surprise</th>
-              <th class="py-2 px-2 font-medium text-right">Gold bias</th>
+              <th class="py-2 px-2 font-medium text-right">Effect</th>
             </tr>
           </thead>
           <tbody id="nbBody"></tbody>
@@ -968,13 +966,13 @@
 
       <div class="space-y-3">
         <div id="nbVerdict" class="rounded-xl border p-4 transition-colors" aria-live="polite">
-          <div class="text-[11px] uppercase tracking-[.2em] opacity-80">Net bias for the day</div>
+          <div id="nbVerdictHead" class="text-[11px] uppercase tracking-[.2em] opacity-80">Net bias</div>
           <div id="nbVerdictLbl" class="text-2xl font-black mt-1">—</div>
           <div class="h-2 rounded-full bg-black/40 mt-3 overflow-hidden relative">
             <div class="absolute left-1/2 top-0 bottom-0 w-px bg-white/40"></div>
             <div id="nbMeter" class="absolute top-0 bottom-0 transition-all"></div>
           </div>
-          <div class="flex justify-between text-[10px] opacity-70 mt-1"><span>Gold bearish</span><span>Gold bullish</span></div>
+          <div class="flex justify-between text-[10px] opacity-70 mt-1"><span>Down</span><span>Up</span></div>
           <div id="nbVerdictSub" class="text-xs opacity-90 mt-2"></div>
         </div>
 
@@ -987,8 +985,8 @@
           <div id="nbConfirm" class="mt-3 text-xs font-semibold"></div>
         </div>
         <p class="text-[11px] text-slate-500 leading-relaxed">
-          AUTO ticks use moves since the release: DXY ≥ 0.05, US10Y ≥ 2 bp, gold's first 5-min after release. Without live market data, tick manually using the charts above.
-          This is the likely <i>initial</i> reaction, not a guarantee.
+          Pairs = base strength − quote strength. Gold = −USD. WTI = EIA crude inventories (draw ▲ / build ▼) + small USD and CNY tilt.
+          AUTO ticks need live market data (run_live.bat). Bias is the likely <i>initial</i> reaction, not a guarantee.
         </p>
       </div>
     </div>
@@ -998,42 +996,37 @@
 <script>
 (() => {
   'use strict';
-  const STORE = 'pfnb-actuals-v1', CHECK_STORE = 'pfnb-checks-v1', MIN = 60000;
-  const TH = { DXY: 0.05, US10Y: 0.02 };          // confirmation thresholds
+  const STORE = 'pfnb-actuals-v1', CHECK_STORE = 'pfnb-checks-v2', UI_STORE = 'pfnb-bias-ui', MIN = 60000;
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const clamp = (x) => Math.max(-1, Math.min(1, x));
 
-  /* ---------- 1. Mount above the Economic Calendar ---------- */
-  const calSection = document.getElementById('calBody')?.closest('section');
-  if (!calSection) { console.warn('News Bias: calendar section not found'); return; }
-  calSection.parentNode.insertBefore(document.getElementById('nbTpl').content.cloneNode(true), calSection);
-  const $ = (id) => document.getElementById(id);
-
-  /* ---------- 2. TradingView mini widgets ---------- */
-  document.querySelectorAll('#nbWidgets .tv').forEach(box => {
-    const wrap = document.createElement('div');
-    wrap.className = 'tradingview-widget-container';
-    wrap.style.height = '100%';
-    wrap.innerHTML = '<div class="tradingview-widget-container__widget" style="height:100%"></div>';
-    const s = document.createElement('script');
-    s.src = 'https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js';
-    s.async = true;
-    s.text = JSON.stringify({ symbol: box.dataset.sym, width: '100%', height: '100%', locale: 'en', dateRange: '1D',
-      colorTheme: 'dark', isTransparent: true, autosize: true, largeChartUrl: '', noTimeScale: false, chartOnly: false });
-    wrap.appendChild(s);
-    box.appendChild(wrap);
-  });
-
-  /* ---------- 3. Event classification ---------- */
+  /* ================= PURE LOGIC ================= */
+  // [regex, dir (+1: higher number = stronger currency), weight, tag]
   const RULES = [
-    [/core (cpi|pce)/i, +1, 3], [/\bcpi\b|consumer price/i, +1, 2], [/\bpce\b/i, +1, 2], [/\bppi\b|producer price/i, +1, 1],
-    [/average hourly earnings|wage/i, +1, 2], [/non-?farm|nfp|employment change/i, +1, 3], [/adp/i, +1, 1],
-    [/unemployment claims|jobless/i, -1, 1], [/unemployment rate/i, -1, 2], [/jolts|job openings/i, +1, 1],
-    [/funds rate|interest rate|rate decision|refinancing rate|cash rate|bank rate/i, +1, 3],
-    [/gdp/i, +1, 2], [/retail sales/i, +1, 2], [/ism|pmi/i, +1, 1], [/consumer (sentiment|confidence)/i, +1, 1],
-    [/inflation expectations/i, +1, 1], [/durable goods|industrial production|housing starts|building permits|home sales/i, +1, 1],
-    [/trade balance/i, +1, 0.5]
+    [/crude oil inventories|crude inventories/i, -1, 3, 'oil'],
+    [/unemployment claims|jobless claims|claimant count/i, -1, 1],
+    [/unemployment rate/i, -1, 2],
+    [/\badp\b/i, +1, 1],
+    [/core (cpi|pce)|trimmed mean|median cpi/i, +1, 3],
+    [/\bcpi\b|\bhicp\b|consumer price/i, +1, 2],
+    [/\bpce\b/i, +1, 2],
+    [/\bppi\b|producer price/i, +1, 1],
+    [/average hourly earnings|average earnings|wage/i, +1, 2],
+    [/non-?farm|employment change/i, +1, 3],
+    [/jolts|job openings/i, +1, 1],
+    [/funds rate|policy rate|bank rate|refinancing rate|cash rate|overnight rate|deposit rate|interest rate|rate decision/i, +1, 3],
+    [/\bgdp\b/i, +1, 2],
+    [/retail sales/i, +1, 2],
+    [/\bism\b|\bpmi\b|tankan/i, +1, 1],
+    [/sentiment|confidence|\bifo\b|\bzew\b/i, +1, 1],
+    [/inflation expectations/i, +1, 1],
+    [/durable goods|industrial production|manufacturing production|housing starts|building permits|home sales/i, +1, 1],
+    [/trade balance|current account/i, +1, 0.5]
   ];
-  const classify = (t) => { for (const [re, dir, w] of RULES) if (re.test(t)) return { dir, w }; return null; };
+  function classify(title) {
+    for (const [re, dir, w, tag] of RULES) if (re.test(title)) return { dir, w, tag: tag || '' };
+    return null;
+  }
   function parseVal(v) {
     if (v == null) return null;
     const m = String(v).trim().replace(/,/g, '').replace(/^[<>]/, '').match(/^(-?\d*\.?\d+)\s*([KMBT%])?$/i);
@@ -1041,13 +1034,16 @@
     const mult = { K: 1e3, M: 1e6, B: 1e9, T: 1e12 }[(m[2] || '').toUpperCase()] || 1;
     return { n: parseFloat(m[1]) * mult, pct: m[2] === '%', unit: m[2] || '' };
   }
+  // score in [-2..2]; + = currency stronger (or oil price up for 'oil' tag)
   function surprise(ev, actualStr) {
     const cls = classify(ev.title), a = parseVal(actualStr), f = parseVal(ev.forecast);
     if (!cls || !a || !f) return null;
-    const diff = a.n - f.n;
+    const diff = a.n - f.n, ad = Math.abs(diff);
     let mag;
-    if (f.pct || a.pct) { const d = Math.abs(diff); mag = d >= 0.195 ? 2 : d >= 0.095 ? 1 : 0; }
-    else { const rel = Math.abs(diff) / Math.max(Math.abs(f.n), 1e-9); mag = rel >= 0.2 ? 2 : rel >= 0.05 ? 1 : 0; }
+    if (cls.tag === 'oil') mag = ad >= 2e6 ? 2 : ad >= 0.8e6 ? 1 : 0;                 // barrels
+    else if (f.pct || a.pct) mag = ad >= 0.195 ? 2 : ad >= 0.095 ? 1 : 0;              // percentage points
+    else if (!f.unit && Math.abs(f.n) >= 10) mag = ad >= 1.5 ? 2 : ad >= 0.5 ? 1 : 0;  // index levels (PMI, sentiment)
+    else { const rel = ad / Math.max(Math.abs(f.n), 1e-9); mag = rel >= 0.2 ? 2 : rel >= 0.05 ? 1 : 0; }
     return { score: (diff === 0 ? 0 : Math.sign(diff) * cls.dir) * mag, diff, cls, unit: a.unit || f.unit };
   }
   const fmtDiff = (d, unit) => {
@@ -1055,16 +1051,69 @@
     const div = { K: 1e3, M: 1e6, B: 1e9, T: 1e12 }[unit.toUpperCase()] || 1;
     return (d > 0 ? '+' : '') + (+(d / div).toFixed(2)) + unit;
   };
+  const driverKey = (e) => (classify(e.title)?.tag === 'oil' ? 'OIL' : e.country);
 
-  /* ---------- 4. Data ---------- */
-  let EVENTS = [], AUTO = { items: [] }, MKT = null, actuals = {}, checks = {};
+  const ASSETS = [
+    { id: 'XAUUSD', name: 'XAUUSD', mkt: 'GOLD',   kind: 'gold', dp: 2, th: 0.08 },
+    { id: 'WTI',    name: 'WTI',    mkt: 'WTI',    kind: 'oil',  dp: 2, th: 0.15 },
+    { id: 'EURUSD', name: 'EURUSD', mkt: 'EURUSD', base: 'EUR', quote: 'USD', dp: 5, th: 0.03 },
+    { id: 'GBPUSD', name: 'GBPUSD', mkt: 'GBPUSD', base: 'GBP', quote: 'USD', dp: 5, th: 0.03 },
+    { id: 'USDJPY', name: 'USDJPY', mkt: 'USDJPY', base: 'USD', quote: 'JPY', dp: 3, th: 0.03 },
+    { id: 'AUDUSD', name: 'AUDUSD', mkt: 'AUDUSD', base: 'AUD', quote: 'USD', dp: 5, th: 0.03 },
+    { id: 'NZDUSD', name: 'NZDUSD', mkt: 'NZDUSD', base: 'NZD', quote: 'USD', dp: 5, th: 0.03 },
+    { id: 'USDCAD', name: 'USDCAD', mkt: 'USDCAD', base: 'USD', quote: 'CAD', dp: 5, th: 0.03 },
+    { id: 'USDCHF', name: 'USDCHF', mkt: 'USDCHF', base: 'USD', quote: 'CHF', dp: 5, th: 0.03 },
+    { id: 'DXY',    name: 'DXY',    mkt: 'DXY',    base: 'USD', dp: 3, th: 0.05 },
+    { id: 'US10Y',  name: 'US10Y',  mkt: 'US10Y',  base: 'USD', dp: 3, th: 2, yield: true }
+  ];
+  const STRENGTH_KEYS = ['USD', 'EUR', 'GBP', 'JPY', 'AUD', 'NZD', 'CAD', 'CHF', 'CNY', 'OIL'];
+  const driversOf = (a) => a.kind === 'gold' ? ['USD'] : a.kind === 'oil' ? ['OIL', 'USD', 'CNY'] : [a.base, a.quote].filter(Boolean);
+
+  function assetScore(a, C) {
+    const N = (k) => (C[k] && C[k].n ? C[k].norm : null);
+    let norm = null;
+    if (a.kind === 'gold') { const u = N('USD'); norm = u == null ? null : -u; }
+    else if (a.kind === 'oil') {
+      const o = N('OIL'), u = N('USD'), c = N('CNY');
+      if (o != null || u != null || c != null) norm = clamp((o || 0) - 0.3 * (u || 0) + 0.3 * (c || 0));
+    } else {
+      const b = N(a.base), q = a.quote ? N(a.quote) : null;
+      if (b != null || q != null) norm = clamp((b || 0) - (q || 0));
+    }
+    let ref = null;
+    for (const k of driversOf(a)) if (C[k] && C[k].ref && (!ref || C[k].ref > ref)) ref = C[k].ref;
+    return { norm, ref };
+  }
+  const biasLabel = (n) => n == null ? 'No news' : n >= 0.35 ? 'Strong ▲' : n >= 0.1 ? '▲ Up' : n <= -0.35 ? 'Strong ▼' : n <= -0.1 ? '▼ Down' : '◆ Neutral';
+  const biasCls = (n) => n == null ? 'bg-slate-800 text-slate-500'
+    : n >= 0.35 ? 'bg-emerald-600 text-white' : n >= 0.1 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+    : n <= -0.35 ? 'bg-red-600 text-white' : n <= -0.1 ? 'bg-red-500/20 text-red-300 border border-red-500/40'
+    : 'bg-slate-700 text-slate-200';
+  const dirOf = (n) => n == null ? 0 : n >= 0.1 ? 1 : n <= -0.1 ? -1 : 0;
+
+  /* ================= MOUNT ================= */
+  const calSection = document.getElementById('calBody')?.closest('section');
+  if (!calSection) { console.warn('News Bias: calendar section not found'); return; }
+  document.getElementById('newsBias')?.remove();
+  calSection.parentNode.insertBefore(document.getElementById('nbTpl').content.cloneNode(true), calSection);
+  const $ = (id) => document.getElementById(id);
+
+  /* ================= STATE ================= */
+  let EVENTS = [], AUTO = { items: [] }, MKT = null, actuals = {}, checks = {}, ui = { focus: 'XAUUSD', scope: 'hm' };
   try { actuals = JSON.parse(localStorage.getItem(STORE) || '{}') || {}; } catch (_) {}
   try { checks = JSON.parse(localStorage.getItem(CHECK_STORE) || '{}') || {}; } catch (_) {}
+  try { Object.assign(ui, JSON.parse(localStorage.getItem(UI_STORE) || '{}') || {}); } catch (_) {}
+  if (!ASSETS.some(a => a.id === ui.focus)) ui.focus = 'XAUUSD';
+  const saveUI = () => { try { localStorage.setItem(UI_STORE, JSON.stringify(ui)); } catch (_) {} };
+  $('nbFocus').innerHTML = ASSETS.map(a => '<option value="' + a.id + '">' + a.name + '</option>').join('');
+  $('nbFocus').value = ui.focus;
+  $('nbScope').value = ui.scope;
+
   const keyOf = (e) => e.date + '|' + e.country + '|' + e.title;
   const ago = (t) => { const m = Math.round((Date.now() - t) / MIN); return m < 1 ? 'just now' : m < 120 ? m + 'm ago' : Math.round(m / 60) + 'h ago'; };
-
   async function getJSON(u) { const r = await fetch(u, { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }
 
+  /* ================= LOADERS ================= */
   async function loadCalendar() {
     for (const u of ['data/calendar.json?ts=' + Date.now(), 'https://nfs.faireconomy.media/ff_calendar_thisweek.json']) {
       try {
@@ -1083,45 +1132,65 @@
     try {
       const j = await getJSON('data/actuals.json?ts=' + Date.now());
       AUTO = { items: Array.isArray(j.items) ? j.items : [] };
-      $('nbAuto').innerHTML = '<span class="text-emerald-400 font-semibold">BLS auto</span> ' + ago(Date.parse(j.fetched_at));
+      const hasEIA = AUTO.items.some(i => i.kind === 'weekly');
+      $('nbAuto').innerHTML = '<span class="text-emerald-400 font-semibold">BLS' + (hasEIA ? ' + EIA' : '') + ' auto</span> ' + ago(Date.parse(j.fetched_at));
     } catch (_) { $('nbAuto').innerHTML = '<span class="text-amber-400 font-semibold">manual</span>'; }
   }
   async function loadMarkets() {
-    try {
-      const j = await getJSON('data/markets.json?ts=' + Date.now());
-      MKT = { at: Date.parse(j.fetched_at) || 0, s: j.symbols || {} };
-    } catch (_) { MKT = null; }
-    const fresh = MKT && Date.now() - MKT.at < 3 * MIN;
-    $('nbMktSrc').innerHTML = !MKT ? '<span class="text-amber-400 font-semibold">charts only</span>'
+    try { const j = await getJSON('data/markets.json?ts=' + Date.now()); MKT = { at: Date.parse(j.fetched_at) || 0, s: j.symbols || {} }; }
+    catch (_) { MKT = null; }
+    const fresh = mktFresh();
+    $('nbMktSrc').innerHTML = !MKT ? '<span class="text-amber-400 font-semibold">no data</span>'
       : fresh ? '<span class="text-emerald-400 font-semibold">live</span> ' + ago(MKT.at)
       : '<span class="text-amber-400 font-semibold">stale</span> ' + ago(MKT.at);
   }
+  const mktFresh = () => !!MKT && Date.now() - MKT.at < 3 * MIN;
+
   function autoActual(e) {
     if (!e || e.country !== 'USD' || e.t > Date.now()) return null;
     const rel = new Date(e.t);
     for (const it of AUTO.items) {
       if (!(it.titles || []).some(t => t.toLowerCase() === e.title.toLowerCase())) continue;
-      const [py, pm] = String(it.period).split('-').map(Number);
-      const lag = (rel.getUTCFullYear() * 12 + rel.getUTCMonth() + 1) - (py * 12 + pm);
-      if (lag < 1 || lag > 2 || Date.parse(it.first_seen) < e.t - 5 * MIN) continue;
+      if (it.kind === 'weekly') {
+        const lagD = (e.t - Date.parse(it.period + 'T00:00:00Z')) / 864e5;
+        if (lagD < 2 || lagD > 12) continue;
+      } else {
+        const [py, pm] = String(it.period).split('-').map(Number);
+        const lag = (rel.getUTCFullYear() * 12 + rel.getUTCMonth() + 1) - (py * 12 + pm);
+        if (lag < 1 || lag > 2) continue;
+      }
+      if (Date.parse(it.first_seen) < e.t - 5 * MIN) continue;
       return it.actual;
     }
     return null;
   }
 
-  /* ---------- 5. Market moves relative to a reference time ---------- */
-  function priceAt(bars, t) {            // last close at or before t
-    let v = null;
-    for (const [bt, c] of bars) { if (bt <= t) v = c; else break; }
-    return v;
-  }
+  /* ================= MARKET HELPERS ================= */
+  function priceAt(bars, t) { let v = null; for (const [bt, c] of bars) { if (bt <= t) v = c; else break; } return v; }
   function moveSince(sym, t, until) {
     const s = MKT && MKT.s[sym];
-    if (!s || !Array.isArray(s.bars) || !s.bars.length) return null;
-    const base = priceAt(s.bars, t);
-    const end = until ? priceAt(s.bars, until) : s.last;
-    if (base == null || end == null || s.bars[0][0] > t) return null;  // reference time not covered
-    return { base, end, d: end - base };
+    if (!s || !Array.isArray(s.bars) || !s.bars.length || s.bars[0][0] > t) return null;
+    const base = priceAt(s.bars, t), end = until ? priceAt(s.bars, until) : s.last;
+    if (base == null || end == null) return null;
+    return { base, end, d: end - base, pct: base ? (end - base) / base * 100 : 0 };
+  }
+  const assetBy = (mkt) => ASSETS.find(a => a.mkt === mkt);
+  // measure in the asset's threshold unit: bp for yields, % otherwise
+  const measure = (a, mv) => a.yield ? mv.d * 100 : mv.pct;
+  const fmtMove = (a, mv) => { const v = measure(a, mv); return (v > 0 ? '+' : '') + v.toFixed(a.yield ? 1 : 2) + (a.yield ? 'bp' : '%'); };
+  function spark(bars, ref) {
+    if (!bars || bars.length < 2) return '<div class="h-10 grid place-items-center text-[10px] text-slate-600">no chart data</div>';
+    const pts = bars.slice(-360);
+    const t0 = pts[0][0], t1 = pts[pts.length - 1][0];
+    let lo = Infinity, hi = -Infinity;
+    for (const [, c] of pts) { if (c < lo) lo = c; if (c > hi) hi = c; }
+    if (hi === lo) hi = lo + 1e-9;
+    const X = (t) => ((t - t0) / ((t1 - t0) || 1)) * 200, Y = (c) => 38 - ((c - lo) / (hi - lo)) * 36;
+    const d = pts.map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1)).join('');
+    const col = pts[pts.length - 1][1] >= pts[0][1] ? '#34d399' : '#f87171';
+    const mark = ref && ref >= t0 && ref <= t1 ? '<line x1="' + X(ref).toFixed(1) + '" x2="' + X(ref).toFixed(1) + '" y1="0" y2="40" stroke="#38bdf8" stroke-dasharray="2 2" vector-effect="non-scaling-stroke"/>' : '';
+    return '<svg viewBox="0 0 200 40" preserveAspectRatio="none" class="w-full h-10" aria-hidden="true">' + mark +
+      '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>';
   }
   function blackoutAfterMin() {
     try {
@@ -1132,7 +1201,7 @@
     return 2;
   }
 
-  /* ---------- 6. Render ---------- */
+  /* ================= RENDER ================= */
   const dayKey = (t) => new Date(t).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   function buildDays() {
     const days = [...new Set(EVENTS.map(e => dayKey(e.t)))], sel = $('nbDay'), prev = sel.value, today = dayKey(Date.now());
@@ -1141,120 +1210,201 @@
     else if (days.includes(today)) sel.value = today;
     else { const nx = EVENTS.find(e => e.t > Date.now()); sel.value = nx ? dayKey(nx.t) : days[days.length - 1]; }
   }
-  const filtered = () => {
-    const sc = $('nbScope').value, day = $('nbDay').value;
-    return EVENTS.filter(e => dayKey(e.t) === day && (sc === 'all' ? e.impact === 'high'
-      : sc === 'usdhigh' ? e.country === 'USD' && e.impact === 'high'
-      : e.country === 'USD' && (e.impact === 'high' || e.impact === 'medium')));
-  };
-  const BIAS = { '2': ['Strong bearish', 'bg-red-600 text-white'], '1': ['Bearish', 'bg-red-500/25 text-red-300 border border-red-500/40'],
-    '0': ['Inline · no edge', 'bg-slate-700 text-slate-200'], '-1': ['Bullish', 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40'],
-    '-2': ['Strong bullish', 'bg-emerald-600 text-white'] };
+  const focusAsset = () => ASSETS.find(a => a.id === ui.focus) || ASSETS[0];
 
-  let REF = null;   // latest scored USD release time → reference for market confirmation
+  let C = {}, SC = {};
   function render() {
-    const rows = filtered();
-    $('nbEmpty').classList.toggle('hidden', rows.length > 0);
-    let net = 0, wsum = 0, used = 0; REF = null;
-    $('nbBody').innerHTML = rows.map(e => {
+    const day = $('nbDay').value, now = Date.now();
+    const dayEvents = EVENTS.filter(e => dayKey(e.t) === day);
+
+    // 1) score every event of the day
+    C = {};
+    const scored = new Map();
+    for (const e of dayEvents) {
       const k = keyOf(e), manual = actuals[k], auto = autoActual(e);
       const act = manual ?? (e.actual || auto || '');
-      const src = manual != null ? 'manual' : e.actual ? 'feed' : auto ? 'BLS' : '';
+      const src = manual != null ? 'manual' : e.actual ? 'feed' : auto ? 'auto' : '';
       const s = surprise(e, act);
-      let pill = '<span class="text-[11px] text-slate-500">' + (classify(e.title) ? (e.forecast ? 'Awaiting actual' : 'No forecast') : 'Qualitative · read headline') + '</span>';
+      scored.set(k, { act, src, s });
+      if (!s) continue;
+      const dk = driverKey(e);
+      const c = C[dk] || (C[dk] = { sum: 0, w: 0, n: 0, ref: null, norm: 0 });
+      c.sum += s.score * s.cls.w; c.w += 2 * s.cls.w; c.n++;
+      if (e.t <= now && (!c.ref || e.t > c.ref)) c.ref = e.t;
+    }
+    for (const k in C) C[k].norm = C[k].w ? C[k].sum / C[k].w : 0;
+    SC = {};
+    for (const a of ASSETS) SC[a.id] = assetScore(a, C);
+
+    renderStrength();
+    renderAssets();
+    renderTable(dayEvents, scored);
+    renderVerdict();
+  }
+
+  function renderStrength() {
+    $('nbStrength').innerHTML = STRENGTH_KEYS.map(k => {
+      const c = C[k], has = c && c.n;
+      const n = has ? c.norm : 0, w = Math.min(50, Math.abs(n) * 50);
+      const bar = n > 0 ? 'bg-emerald-400' : n < 0 ? 'bg-red-400' : 'bg-slate-500';
+      return '<div class="rounded-lg border border-slate-800 bg-slate-950/60 px-2.5 py-2">' +
+        '<div class="flex items-center justify-between text-[11px]"><span class="font-bold text-slate-200">' + k + '</span>' +
+        '<span class="mono ' + (!has ? 'text-slate-600' : n > 0 ? 'text-emerald-300' : n < 0 ? 'text-red-300' : 'text-slate-400') + '">' + (has ? (n > 0 ? '+' : '') + n.toFixed(2) : '—') + '</span></div>' +
+        '<div class="relative h-1.5 rounded-full bg-black/50 mt-1.5 overflow-hidden"><div class="absolute left-1/2 top-0 bottom-0 w-px bg-white/30"></div>' +
+        (has ? '<div class="absolute top-0 bottom-0 ' + bar + '" style="left:' + (n >= 0 ? 50 : 50 - w) + '%;width:' + Math.max(2, w) + '%"></div>' : '') + '</div>' +
+        '<div class="text-[9px] text-slate-500 mt-1">' + (has ? c.n + ' release' + (c.n > 1 ? 's' : '') : 'no data') + '</div></div>';
+    }).join('');
+  }
+
+  function renderAssets() {
+    const fresh = mktFresh();
+    $('nbAssets').innerHTML = ASSETS.map(a => {
+      const sc = SC[a.id], s = MKT && MKT.s[a.mkt];
+      const mv = sc.ref ? moveSince(a.mkt, sc.ref) : null;
+      let chg = '', chgCls = 'text-slate-500';
+      if (mv) { chg = fmtMove(a, mv) + ' since news'; chgCls = measure(a, mv) > 0 ? 'text-emerald-400' : measure(a, mv) < 0 ? 'text-red-400' : 'text-slate-500'; }
+      else if (s && s.last != null && s.prev_close) {
+        const d = s.last - s.prev_close, v = a.yield ? d * 100 : d / s.prev_close * 100;
+        chg = (v > 0 ? '+' : '') + v.toFixed(a.yield ? 1 : 2) + (a.yield ? 'bp' : '%') + ' today';
+        chgCls = v > 0 ? 'text-emerald-400' : v < 0 ? 'text-red-400' : 'text-slate-500';
+      }
+      const dir = dirOf(sc.norm);
+      let conf = '<span class="text-slate-600">—</span>';
+      if (dir && mv && fresh) {
+        const m = measure(a, mv), ok = dir > 0 ? m >= a.th : m <= -a.th, against = dir > 0 ? m <= -a.th : m >= a.th;
+        conf = ok ? '<span class="text-emerald-400">✓ price confirms</span>' : against ? '<span class="text-red-400">✗ price disagrees</span>' : '<span class="text-amber-300">… not yet</span>';
+      } else if (dir && !fresh) conf = '<span class="text-slate-500">price n/a</span>';
+      const drivers = driversOf(a).map(k => k + (C[k] && C[k].n ? (C[k].norm > 0 ? '+' : '') + C[k].norm.toFixed(2) : ' –')).join(' · ');
+      const focused = a.id === ui.focus;
+      return '<button type="button" data-focus="' + a.id + '" class="text-left rounded-xl border p-2.5 bg-slate-950/60 transition hover:border-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ' +
+        (focused ? 'border-sky-500 ring-1 ring-sky-500/50' : 'border-slate-800') + '">' +
+        '<div class="flex items-center justify-between gap-1"><span class="text-xs font-bold text-white">' + a.name + '</span>' +
+        '<span class="rounded-full px-1.5 py-0.5 text-[9px] font-bold whitespace-nowrap ' + biasCls(sc.norm) + '">' + biasLabel(sc.norm) + '</span></div>' +
+        '<div class="flex items-baseline justify-between gap-1 mt-1"><span class="mono text-sm text-slate-100">' + (s && s.last != null ? (+s.last).toFixed(a.dp) : '—') + '</span>' +
+        '<span class="mono text-[10px] ' + chgCls + '">' + esc(chg) + '</span></div>' +
+        spark(s && s.bars, sc.ref) +
+        '<div class="flex justify-between gap-1 text-[9px] mt-0.5"><span class="text-slate-500 truncate" title="' + esc(drivers) + '">' + esc(drivers) + '</span><span class="whitespace-nowrap">' + conf + '</span></div>' +
+        '</button>';
+    }).join('');
+  }
+
+  function effectPill(e, s) {
+    const strong = Math.abs(s.score) === 2;
+    if (s.score === 0) return '<span class="rounded-full px-2 py-0.5 text-[10px] font-bold bg-slate-700 text-slate-200">Inline · no edge</span>';
+    const up = s.score > 0;
+    const base = up ? (strong ? 'bg-emerald-600 text-white' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40')
+                    : (strong ? 'bg-red-600 text-white' : 'bg-red-500/20 text-red-300 border border-red-500/40');
+    let txt;
+    if (s.cls.tag === 'oil') txt = 'WTI ' + (up ? '▲' : '▼') + (strong ? ' strong' : '');
+    else txt = e.country + ' ' + (up ? '▲' : '▼') + (strong ? ' strong' : '') + (e.country === 'USD' ? ' · Gold ' + (up ? '▼' : '▲') : '');
+    return '<span class="rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide ' + base + '">' + esc(txt) + '</span>';
+  }
+
+  function renderTable(dayEvents, scored) {
+    const fa = focusAsset(), fdr = driversOf(fa);
+    const rows = dayEvents.filter(e =>
+      ui.scope === 'high' ? e.impact === 'high'
+      : ui.scope === 'usd' ? e.country === 'USD' && (e.impact === 'high' || e.impact === 'medium')
+      : ui.scope === 'focus' ? fdr.includes(driverKey(e)) && (e.impact === 'high' || e.impact === 'medium')
+      : e.impact === 'high' || e.impact === 'medium');
+    $('nbEmpty').classList.toggle('hidden', rows.length > 0);
+    $('nbBody').innerHTML = rows.map(e => {
+      const k = keyOf(e), { act, src, s } = scored.get(k);
+      const cls = classify(e.title);
+      let pill = '<span class="text-[11px] text-slate-500">' + (cls ? (e.forecast ? 'Awaiting actual' : 'No forecast') : 'Qualitative · read headline') + '</span>';
       let sup = '<span class="text-slate-600">—</span>';
       if (s) {
-        sup = '<span class="mono text-xs ' + (s.score > 0 ? 'text-red-300' : s.score < 0 ? 'text-emerald-300' : 'text-slate-400') + '">' + esc(fmtDiff(s.diff, s.unit)) + '</span>';
-        if (e.country === 'USD') {
-          const [l, c] = BIAS[String(s.score)];
-          pill = '<span class="rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide ' + c + '">' + (s.score > 0 ? '▼ ' : s.score < 0 ? '▲ ' : '') + l + '</span>';
-          net += -s.score * s.cls.w; wsum += 2 * s.cls.w; used++;
-          if (e.t <= Date.now() && (!REF || e.t > REF)) REF = e.t;
-        } else {
-          pill = '<span class="text-[11px] ' + (s.score > 0 ? 'text-sky-300' : s.score < 0 ? 'text-amber-300' : 'text-slate-400') + '">' + esc(e.country) + ' ' + (s.score > 0 ? 'stronger' : s.score < 0 ? 'weaker' : 'inline') + ' · gold n/a</span>';
-        }
+        const good = s.score > 0;
+        sup = '<span class="mono text-xs ' + (s.score === 0 ? 'text-slate-400' : good ? 'text-emerald-300' : 'text-red-300') + '">' + esc(fmtDiff(s.diff, s.unit)) + '</span>';
+        pill = effectPill(e, s);
       }
       const time = new Date(e.t).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
-      return '<tr class="border-b border-slate-800/70">' +
+      const tagCur = cls && cls.tag === 'oil' ? 'OIL' : e.country;
+      return '<tr class="border-b border-slate-800/70' + (fdr.includes(driverKey(e)) ? '' : ' opacity-75') + '">' +
         '<td class="py-2 px-2 mono text-slate-200 whitespace-nowrap">' + time + '</td>' +
-        '<td class="py-2 px-2"><span class="text-[10px] font-bold text-slate-400 mr-1">' + esc(e.country) + '</span><span class="' + (e.impact === 'high' ? 'text-white font-semibold' : 'text-slate-300') + '">' + esc(e.title) + '</span></td>' +
+        '<td class="py-2 px-2"><span class="text-[10px] font-bold mr-1 ' + (e.impact === 'high' ? 'text-red-400' : 'text-orange-300') + '">' + esc(tagCur) + '</span>' +
+          '<span class="' + (e.impact === 'high' ? 'text-white font-semibold' : 'text-slate-300') + '">' + esc(e.title) + '</span></td>' +
         '<td class="py-2 px-2 mono text-xs text-slate-300">' + esc(e.forecast || '—') + '</td>' +
         '<td class="py-2 px-2 mono text-xs text-slate-500">' + esc(e.previous || '—') + '</td>' +
-        '<td class="py-2 px-2"><input data-k="' + esc(k) + '" value="' + esc(act) + '" placeholder="e.g. 0.3%" aria-label="Actual for ' + esc(e.title) + '" class="inp mono !w-24 !py-1 !px-2 text-xs' + (src === 'BLS' || src === 'feed' ? ' !border-emerald-600' : '') + '" />' +
-          (src ? '<div class="text-[9px] mt-0.5 ' + (src === 'manual' ? 'text-amber-400' : 'text-emerald-400') + '">' + src + '</div>' : '') + '</td>' +
+        '<td class="py-2 px-2"><input data-k="' + esc(k) + '" value="' + esc(act) + '" placeholder="actual" aria-label="Actual for ' + esc(e.title) + '" class="inp mono !w-24 !py-1 !px-2 text-xs' +
+          (src === 'auto' || src === 'feed' ? ' !border-emerald-600' : '') + '" />' +
+          (src ? '<div class="text-[9px] mt-0.5 ' + (src === 'manual' ? 'text-amber-400' : 'text-emerald-400') + '">' + (src === 'auto' ? (cls && cls.tag === 'oil' ? 'EIA' : 'BLS') : src) + '</div>' : '') + '</td>' +
         '<td class="py-2 px-2 whitespace-nowrap">' + sup + '</td>' +
         '<td class="py-2 px-2 text-right whitespace-nowrap">' + pill + '</td></tr>';
     }).join('');
-    renderVerdict(wsum ? net / wsum : 0, used);
   }
 
-  let EXPECT = null;
-  function renderVerdict(norm, used) {
-    let txt, cls, bar;
-    if (!used) { txt = 'Waiting for data'; cls = 'border-slate-700 bg-slate-900 text-slate-200'; bar = 'bg-slate-500'; }
-    else if (norm >= 0.35) { txt = '▲ GOLD BULLISH (strong)'; cls = 'border-emerald-400 bg-emerald-700/70 text-white'; bar = 'bg-emerald-300'; }
-    else if (norm >= 0.1) { txt = '▲ Gold bullish'; cls = 'border-emerald-500/50 bg-emerald-950/60 text-emerald-200'; bar = 'bg-emerald-400'; }
-    else if (norm <= -0.35) { txt = '▼ GOLD BEARISH (strong)'; cls = 'border-red-400 bg-red-800/70 text-white'; bar = 'bg-red-300'; }
-    else if (norm <= -0.1) { txt = '▼ Gold bearish'; cls = 'border-red-500/50 bg-red-950/60 text-red-200'; bar = 'bg-red-400'; }
-    else { txt = '◆ Mixed / inline — no edge'; cls = 'border-amber-500/50 bg-amber-950/50 text-amber-200'; bar = 'bg-amber-300'; }
+  function renderVerdict() {
+    const a = focusAsset(), sc = SC[a.id], n = sc.norm;
+    let cls, bar;
+    if (n == null) { cls = 'border-slate-700 bg-slate-900 text-slate-200'; bar = 'bg-slate-500'; }
+    else if (n >= 0.35) { cls = 'border-emerald-400 bg-emerald-700/70 text-white'; bar = 'bg-emerald-300'; }
+    else if (n >= 0.1) { cls = 'border-emerald-500/50 bg-emerald-950/60 text-emerald-200'; bar = 'bg-emerald-400'; }
+    else if (n <= -0.35) { cls = 'border-red-400 bg-red-800/70 text-white'; bar = 'bg-red-300'; }
+    else if (n <= -0.1) { cls = 'border-red-500/50 bg-red-950/60 text-red-200'; bar = 'bg-red-400'; }
+    else { cls = 'border-amber-500/50 bg-amber-950/50 text-amber-200'; bar = 'bg-amber-300'; }
     $('nbVerdict').className = 'rounded-xl border p-4 transition-colors ' + cls;
-    $('nbVerdictLbl').textContent = txt;
-    const w = Math.min(50, Math.abs(norm) * 50), m = $('nbMeter');
+    $('nbVerdictHead').textContent = 'Net bias · ' + a.name;
+    $('nbVerdictLbl').textContent = n == null ? 'Waiting for data'
+      : a.name + ' ' + (n >= 0.35 ? '▲ UP (strong)' : n >= 0.1 ? '▲ Up' : n <= -0.35 ? '▼ DOWN (strong)' : n <= -0.1 ? '▼ Down' : '◆ Mixed — no edge');
+    const w = n == null ? 0 : Math.min(50, Math.abs(n) * 50), m = $('nbMeter');
     m.className = 'absolute top-0 bottom-0 transition-all ' + bar;
-    m.style.left = norm >= 0 ? '50%' : (50 - w) + '%';
-    m.style.width = Math.max(used ? 1 : 0, w) + '%';
-    $('nbVerdictSub').textContent = used ? 'Based on ' + used + ' USD release' + (used > 1 ? 's' : '') + ' (Core/NFP/Fed weigh most). Score ' + (norm > 0 ? '+' : '') + norm.toFixed(2) : 'Actual fills automatically for BLS releases; otherwise type it.';
-    EXPECT = norm <= -0.1 ? 'bear' : norm >= 0.1 ? 'bull' : null;
+    m.style.left = (n || 0) >= 0 ? '50%' : (50 - w) + '%';
+    m.style.width = (n == null ? 0 : Math.max(1, w)) + '%';
+    const parts = driversOf(a).map(k => C[k] && C[k].n ? k + ' ' + (C[k].norm > 0 ? '+' : '') + C[k].norm.toFixed(2) + ' (' + C[k].n + ')' : k + ' no data');
+    $('nbVerdictSub').textContent = (n == null ? 'No scored releases for ' + driversOf(a).join('/') + ' yet. ' : 'Score ' + (n > 0 ? '+' : '') + n.toFixed(2) + ' · ') + 'Drivers: ' + parts.join(' · ');
     renderChecks();
   }
 
   function renderChecks() {
-    const ref = REF, now = Date.now();
-    // Header change labels on the widget strip (since release, or vs prior close)
-    const lab = (id, sym, dp, unit) => {
-      const mv = ref ? moveSince(sym, ref) : null, s = MKT && MKT.s[sym];
-      const el = $(id);
-      let d = mv ? mv.d : (s && s.last != null && s.prev_close != null ? s.last - s.prev_close : null);
-      if (d == null) { el.textContent = ''; return; }
-      if (unit === 'bp') d *= 100;
-      el.textContent = (d > 0 ? '+' : '') + d.toFixed(dp) + (unit || '') + (mv ? ' since release' : ' today');
-      el.className = 'mono ' + (d > 0 ? 'text-emerald-400' : d < 0 ? 'text-red-400' : 'text-slate-500');
+    const a = focusAsset(), sc = SC[a.id] || {}, ref = sc.ref, dir = dirOf(sc.norm), now = Date.now(), fresh = mktFresh();
+    if (!dir) {
+      $('nbChecks').innerHTML = '<div class="text-slate-500">No directional bias for ' + a.name + ' yet — nothing to confirm.</div>';
+      $('nbConfirm').textContent = ''; $('nbRef').textContent = ''; return;
+    }
+    const usd = C.USD && C.USD.n ? dirOf(C.USD.norm) : 0;
+    const usesUSD = a.kind === 'gold' || a.base === 'USD' || a.quote === 'USD';
+    const autoDir = (mkt, want) => {
+      if (!ref || !fresh) return [null, ''];
+      const aa = assetBy(mkt), mv = moveSince(mkt, ref);
+      if (!aa || !mv) return [null, ''];
+      const m = measure(aa, mv);
+      return [want > 0 ? m >= aa.th : m <= -aa.th, fmtMove(aa, mv)];
     };
-    lab('nbDxyChg', 'DXY', 3); lab('nbYldChg', 'US10Y', 1, 'bp'); lab('nbGoldChg', 'GOLD', 1);
-
-    if (!EXPECT) { $('nbChecks').innerHTML = '<div class="text-slate-500">No directional bias yet — nothing to confirm.</div>'; $('nbConfirm').textContent = ''; $('nbRef').textContent = ''; return; }
-    const up = EXPECT === 'bear';  // gold bearish ⇒ DXY & yields should rise
-    const fresh = MKT && now - MKT.at < 3 * MIN;
-    const dxy = ref && fresh ? moveSince('DXY', ref) : null;
-    const yld = ref && fresh ? moveSince('US10Y', ref) : null;
-    const gold5 = ref && MKT && now >= ref + 5 * MIN ? moveSince('GOLD', ref, ref + 5 * MIN) : null;
+    const items = [];
+    if (usesUSD && usd && a.id !== 'DXY') items.push(['dxy', 'DXY moving ' + (usd > 0 ? 'UP' : 'DOWN'), ...autoDir('DXY', usd)]);
+    if (usesUSD && usd && a.id !== 'US10Y') items.push(['yld', 'US10Y yield moving ' + (usd > 0 ? 'UP' : 'DOWN'), ...autoDir('US10Y', usd)]);
+    let c5 = [null, ''];
+    if (ref && MKT && now >= ref + 5 * MIN) {
+      const mv = moveSince(a.mkt, ref, ref + 5 * MIN);
+      if (mv) c5 = [dir > 0 ? mv.d > 0 : mv.d < 0, fmtMove(a, mv)];
+    }
+    items.push(['c5', 'First 5-min ' + a.name + ' after news ' + (dir > 0 ? 'UP' : 'DOWN'), ...c5]);
     const after = blackoutAfterMin();
-    const auto = (mv, th) => mv == null ? null : (up ? mv.d >= th : mv.d <= -th);
-    const items = [
-      ['dxy', 'DXY moving ' + (up ? 'UP' : 'DOWN'), auto(dxy, TH.DXY), dxy && ((dxy.d > 0 ? '+' : '') + dxy.d.toFixed(3))],
-      ['yld', 'US10Y yield moving ' + (up ? 'UP' : 'DOWN'), auto(yld, TH.US10Y), yld && ((yld.d > 0 ? '+' : '') + (yld.d * 100).toFixed(1) + 'bp')],
-      ['candle', 'First 5-min gold after release closed ' + (up ? 'RED' : 'GREEN'), gold5 ? (up ? gold5.d < 0 : gold5.d > 0) : null, gold5 && ((gold5.d > 0 ? '+' : '') + gold5.d.toFixed(1))],
-      ['blk', 'Blackout ended (+' + after + ' min)', ref ? now >= ref + after * MIN : null, ref && now < ref + after * MIN ? Math.ceil((ref + after * MIN - now) / 1000) + 's left' : '']
-    ];
+    items.push(['blk', 'Blackout ended (+' + after + ' min)', ref ? now >= ref + after * MIN : null,
+      ref && now < ref + after * MIN ? Math.ceil((ref + after * MIN - now) / 1000) + 's left' : '']);
+
+    const ck = (id) => a.id + '|' + dir + '|' + (ref || 0) + '|' + id;
     $('nbRef').textContent = ref ? 'vs ' + new Date(ref).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }) + ' release' : '';
     let ok = 0;
-    $('nbChecks').innerHTML = items.map(([id, t, a, val]) => {
-      const isAuto = a !== null, on = isAuto ? a : !!checks[EXPECT + id];
+    $('nbChecks').innerHTML = items.map(([id, t, auto, val]) => {
+      const isAuto = auto !== null, on = isAuto ? auto : !!checks[ck(id)];
       if (on) ok++;
       return '<label class="flex items-center gap-2 ' + (isAuto ? '' : 'cursor-pointer') + '"><input type="checkbox" data-c="' + id + '"' + (on ? ' checked' : '') + (isAuto ? ' disabled' : '') + ' class="h-4 w-4 accent-sky-500" />' +
         '<span class="flex-1">' + esc(t) + '</span>' + (val ? '<span class="mono text-[10px] ' + (on ? 'text-emerald-300' : 'text-red-300') + '">' + esc(val) + '</span>' : '') +
         '<span class="text-[9px] font-bold ' + (isAuto ? 'text-sky-400' : 'text-slate-600') + '">' + (isAuto ? 'AUTO' : 'MANUAL') + '</span></label>';
     }).join('');
     const c = $('nbConfirm');
-    if (ok === items.length) { c.textContent = '✅ Confirmed — bias aligned. Trade the retest with your normal risk.'; c.className = 'mt-3 text-xs font-semibold text-emerald-300'; }
+    if (ok === items.length) { c.textContent = '✅ Confirmed — ' + a.name + ' bias aligned. Trade the retest with normal risk.'; c.className = 'mt-3 text-xs font-semibold text-emerald-300'; }
     else { c.textContent = ok + ' / ' + items.length + ' confirmed — wait.'; c.className = 'mt-3 text-xs font-semibold text-amber-300'; }
+    renderChecks.ck = ck;
   }
 
-  /* ---------- 7. Events ---------- */
+  /* ================= EVENTS ================= */
   $('nbBody').addEventListener('change', (ev) => {
     const inp = ev.target.closest('input[data-k]'); if (!inp) return;
     const v = inp.value.trim();
-    if (v && !parseVal(v)) { inp.classList.add('!border-red-500'); inp.title = 'Use a number like 0.3%, 245K, -1.2M'; return; }
+    if (v && !parseVal(v)) { inp.classList.add('!border-red-500'); inp.title = 'Use a number like 0.3%, 245K, -1.2M, 52.1'; return; }
     inp.classList.remove('!border-red-500'); inp.title = '';
     const e = EVENTS.find(x => keyOf(x) === inp.dataset.k);
     if (v && v !== autoActual(e)) actuals[inp.dataset.k] = v; else delete actuals[inp.dataset.k];
@@ -1263,16 +1413,21 @@
   });
   $('nbBody').addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target.matches('input[data-k]')) ev.target.blur(); });
   $('nbChecks').addEventListener('change', (ev) => {
-    const cb = ev.target.closest('input[data-c]'); if (!cb || cb.disabled) return;
-    checks[(EXPECT || '') + cb.dataset.c] = cb.checked;
+    const cb = ev.target.closest('input[data-c]'); if (!cb || cb.disabled || !renderChecks.ck) return;
+    checks[renderChecks.ck(cb.dataset.c)] = cb.checked;
     try { localStorage.setItem(CHECK_STORE, JSON.stringify(checks)); } catch (_) {}
     renderChecks();
   });
-  $('nbScope').addEventListener('change', render);
-  $('nbDay').addEventListener('change', () => { checks = {}; render(); });
+  $('nbAssets').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-focus]'); if (!b) return;
+    ui.focus = b.dataset.focus; $('nbFocus').value = ui.focus; saveUI(); render();
+  });
+  $('nbFocus').addEventListener('change', (e) => { ui.focus = e.target.value; saveUI(); render(); });
+  $('nbScope').addEventListener('change', (e) => { ui.scope = e.target.value; saveUI(); render(); });
+  $('nbDay').addEventListener('change', render);
   document.getElementById('refreshBtn')?.addEventListener('click', () => setTimeout(full, 300));
 
-  /* ---------- 8. Loop ---------- */
+  /* ================= LOOP ================= */
   async function full() {
     const ok = await loadCalendar();
     await Promise.all([loadAuto(), loadMarkets()]);
@@ -1283,16 +1438,17 @@
   setInterval(async () => {
     const n = Date.now();
     if (n - lastFull > 15 * MIN) { lastFull = n; return full(); }
-    const hot = EVENTS.some(e => e.country === 'USD' && e.t <= n && n - e.t < 30 * MIN);
-    await loadMarkets();                       // cheap local file: every 10 s
+    const hot = EVENTS.some(e => e.t <= n && n - e.t < 30 * MIN && (e.impact === 'high' || e.impact === 'medium'));
+    await loadMarkets();
     if (hot || n % (5 * MIN) < 10000) await loadAuto();
     render();
   }, 10000);
-  setInterval(renderChecks, 1000);             // blackout countdown ticks
+  setInterval(() => { if (Object.keys(SC).length) renderChecks(); }, 1000);
   full();
 })();
 </script>
-<!-- =================== END NEWS BIAS PANEL v3 =================== -->
+<!-- =================== END NEWS BIAS PANEL v4 =================== -->
+
 
 
 
