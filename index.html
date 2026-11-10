@@ -918,7 +918,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 class="card-title">News Bias · XAUUSD</h2>
-        <p class="text-xs text-slate-400">Enter the <b>Actual</b> when the release prints. Bias = Actual vs Forecast (the surprise).</p>
+        <p class="text-xs text-slate-400">Actuals auto-fill from official BLS data (<span id="nbAuto" class="text-slate-300">checking…</span>). You can still type/override. Bias = Actual vs Forecast.</p>
       </div>
       <div class="flex items-center gap-2">
         <label for="nbScope" class="text-xs text-slate-400">Show</label>
@@ -1054,6 +1054,7 @@
   /* ---------- 4. Data ---------- */
   let EVENTS = [];
   let actuals = {};
+  let AUTO = { items: [], fetched_at: 0 };
   try { actuals = JSON.parse(localStorage.getItem(STORE) || '{}') || {}; } catch (_) {}
   const keyOf = (e) => e.date + '|' + e.country + '|' + e.title;
 
@@ -1070,11 +1071,40 @@
           .map(e => ({ date: e.date, t: Date.parse(e.date), country: String(e.country || '').toUpperCase(), title: String(e.title),
                        impact: String(e.impact || '').toLowerCase(), forecast: e.forecast || '', previous: e.previous || '', actual: e.actual || '' }))
           .sort((a, b) => a.t - b.t);
-        buildDays(); render(); return;
+        await loadAuto(); buildDays(); render(); return;
       } catch (_) { /* try next */ }
     }
     $('nbEmpty').textContent = 'Could not load calendar data.';
     $('nbEmpty').classList.remove('hidden');
+  }
+
+  async function loadAuto() {
+    try {
+      const r = await fetch('data/actuals.json?ts=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      AUTO = { items: Array.isArray(j.items) ? j.items : [], fetched_at: Date.parse(j.fetched_at) || 0 };
+      const age = Math.round((Date.now() - AUTO.fetched_at) / 60000);
+      $('nbAuto').innerHTML = '<span class="text-emerald-400 font-semibold">auto ON</span> · BLS checked ' + (age < 1 ? 'just now' : age < 120 ? age + 'm ago' : Math.round(age / 60) + 'h ago');
+    } catch (_) {
+      $('nbAuto').innerHTML = '<span class="text-amber-400 font-semibold">auto OFF</span> · data/actuals.json not found';
+    }
+  }
+  /* Auto actual only if: USD, title matches, BLS period = 1–2 months before the release,
+     event time has passed and the value was first seen after the release (so last month's
+     number is never shown as this month's actual). */
+  function autoActual(e) {
+    if (e.country !== 'USD' || e.t > Date.now()) return null;
+    const rel = new Date(e.t);
+    for (const it of AUTO.items) {
+      if (!(it.titles || []).some(t => t.toLowerCase() === e.title.toLowerCase())) continue;
+      const [py, pm] = String(it.period).split('-').map(Number);
+      const lag = (rel.getUTCFullYear() * 12 + rel.getUTCMonth() + 1) - (py * 12 + pm);
+      if (lag < 1 || lag > 2) continue;
+      if (Date.parse(it.first_seen) < e.t - 5 * 60000) continue;
+      return it.actual;
+    }
+    return null;
   }
 
   const dayKey = (t) => new Date(t).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
@@ -1114,7 +1144,10 @@
     let net = 0, wsum = 0, used = [];
     $('nbBody').innerHTML = rows.map(e => {
       const k = keyOf(e);
-      const act = actuals[k] ?? e.actual ?? '';
+      const auto = autoActual(e);
+      const manual = actuals[k];
+      const act = manual ?? (e.actual || auto || '');
+      const src = manual != null ? 'manual' : e.actual ? 'feed' : auto ? 'BLS' : '';
       const s = surprise(e, act);
       const isUSD = e.country === 'USD';
       let pill = '<span class="text-[11px] text-slate-500">' + (classify(e.title) ? (e.forecast ? 'Awaiting actual' : 'No forecast') : 'Qualitative · read headline') + '</span>';
@@ -1139,7 +1172,8 @@
         '<td class="py-2 px-2 mono text-xs text-slate-300">' + esc(e.forecast || '—') + '</td>' +
         '<td class="py-2 px-2 mono text-xs text-slate-500">' + esc(e.previous || '—') + '</td>' +
         '<td class="py-2 px-2"><input data-k="' + esc(k) + '" value="' + esc(act) + '" placeholder="e.g. 0.3%" aria-label="Actual for ' + esc(e.title) + '"' +
-          ' class="inp mono !w-24 !py-1 !px-2 text-xs" /></td>' +
+          ' class="inp mono !w-24 !py-1 !px-2 text-xs' + (src === 'BLS' || src === 'feed' ? ' !border-emerald-600' : '') + '" />' +
+          (src ? '<div class="text-[9px] mt-0.5 ' + (src === 'manual' ? 'text-amber-400' : 'text-emerald-400') + '">' + src + '</div>' : '') + '</td>' +
         '<td class="py-2 px-2 whitespace-nowrap">' + sup + '</td>' +
         '<td class="py-2 px-2 text-right whitespace-nowrap">' + pill + '</td></tr>';
     }).join('');
@@ -1199,7 +1233,7 @@
     const v = inp.value.trim();
     if (v && !parseVal(v)) { inp.classList.add('!border-red-500'); inp.title = 'Use a number like 0.3%, 245K, -1.2M'; return; }
     inp.classList.remove('!border-red-500'); inp.title = '';
-    if (v) actuals[inp.dataset.k] = v; else delete actuals[inp.dataset.k];
+    if (v && v !== autoActual(EVENTS.find(x => keyOf(x) === inp.dataset.k) || {})) actuals[inp.dataset.k] = v; else delete actuals[inp.dataset.k];
     try { localStorage.setItem(STORE, JSON.stringify(actuals)); } catch (_) {}
     render();
   });
@@ -1215,10 +1249,18 @@
   document.getElementById('refreshBtn')?.addEventListener('click', () => setTimeout(load, 500));
 
   load();
-  setInterval(load, 15 * 60000);  // pick up new forecasts/actuals from the feed
+  // Poll actuals every 20 s for 20 min after any USD high/medium release, otherwise every 5 min.
+  let lastFull = Date.now();
+  setInterval(async () => {
+    const n = Date.now();
+    const hot = EVENTS.some(e => e.country === 'USD' && e.t <= n && n - e.t < 20 * 60000);
+    if (n - lastFull > 15 * 60000) { lastFull = n; return load(); }
+    if (hot || n % (5 * 60000) < 20000) { await loadAuto(); render(); }
+  }, 20000);
 })();
 </script>
 <!-- =================== END NEWS BIAS PANEL =================== -->
+
 
 </body>
 </html>
