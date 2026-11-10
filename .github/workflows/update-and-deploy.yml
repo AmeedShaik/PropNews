@@ -4,9 +4,9 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "7,37 * * * *"               # calendar every 30 min
-    - cron: "31-59/4 12-13 * * 1-5"      # US data 08:30 ET (BLS)
-    - cron: "31-59/4 14-15 * * 3,4"      # EIA crude inventories 10:30 ET (Wed; Thu on holiday weeks)
+    - cron: "7,37 * * * *"
+    - cron: "31-59/4 12-13 * * 1-5"
+    - cron: "31-59/4 14-15 * * 3,4"
   workflow_dispatch:
 
 permissions:
@@ -40,25 +40,31 @@ jobs:
           EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: python scripts/fetch_actuals.py
 
-      - name: Fetch market snapshot (not committed, deployed only)
+      - name: Fetch market snapshot
         run: python scripts/fetch_markets.py
-
-      - name: Commit calendar + actuals
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/calendar.json data/actuals.json 2>/dev/null || true
-          git diff --cached --quiet || (git commit -m "chore: update data [skip ci]" && git pull --rebase && git push)
-
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Build site folder
         run: |
           mkdir -p _site/data
           cp index.html _site/
           cp data/*.json _site/data/ 2>/dev/null || true
+
+      - name: Commit calendar + actuals
+        continue-on-error: true
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm --cached --ignore-unmatch -q data/markets.json
+          grep -qx "data/markets.json" .gitignore 2>/dev/null || echo "data/markets.json" >> .gitignore
+          git add .gitignore data/calendar.json data/actuals.json 2>/dev/null || true
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: update data [skip ci]"
+          git pull --rebase --autostash -X theirs || true
+          git push
+
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
