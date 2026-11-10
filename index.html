@@ -912,13 +912,13 @@
   loadData(false);
 })();
 </script>
-<!-- ===================== NEWS BIAS PANEL (paste just above </body>) ===================== -->
+<!-- ===================== NEWS BIAS PANEL v3 (paste just above </body>) ===================== -->
 <template id="nbTpl">
   <section id="newsBias" class="card">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 class="card-title">News Bias · XAUUSD</h2>
-        <p class="text-xs text-slate-400">Actuals auto-fill from official BLS data (<span id="nbAuto" class="text-slate-300">checking…</span>). You can still type/override. Bias = Actual vs Forecast.</p>
+        <p class="text-xs text-slate-400">Actuals: <span id="nbAuto" class="text-slate-300">checking…</span> · Markets: <span id="nbMktSrc" class="text-slate-300">checking…</span>. Bias = Actual vs Forecast.</p>
       </div>
       <div class="flex items-center gap-2">
         <label for="nbScope" class="text-xs text-slate-400">Show</label>
@@ -927,7 +927,23 @@
           <option value="usdhigh">USD red folder only</option>
           <option value="all">All currencies (high)</option>
         </select>
-        <select id="nbDay" class="inp !w-auto !py-1.5 text-xs"></select>
+        <select id="nbDay" class="inp !w-auto !py-1.5 text-xs" aria-label="Day"></select>
+      </div>
+    </div>
+
+    <!-- Live market strip (TradingView widgets: visual, always live) -->
+    <div class="grid gap-3 md:grid-cols-3 mt-4" id="nbWidgets">
+      <div class="rounded-xl border border-slate-800 bg-slate-950/60 overflow-hidden">
+        <div class="flex justify-between px-3 pt-2 text-[11px]"><span class="font-semibold text-slate-300">DXY</span><span id="nbDxyChg" class="mono text-slate-500"></span></div>
+        <div class="tv h-[150px]" data-sym="TVC:DXY"></div>
+      </div>
+      <div class="rounded-xl border border-slate-800 bg-slate-950/60 overflow-hidden">
+        <div class="flex justify-between px-3 pt-2 text-[11px]"><span class="font-semibold text-slate-300">US10Y</span><span id="nbYldChg" class="mono text-slate-500"></span></div>
+        <div class="tv h-[150px]" data-sym="TVC:US10Y"></div>
+      </div>
+      <div class="rounded-xl border border-slate-800 bg-slate-950/60 overflow-hidden">
+        <div class="flex justify-between px-3 pt-2 text-[11px]"><span class="font-semibold text-slate-300">XAUUSD</span><span id="nbGoldChg" class="mono text-slate-500"></span></div>
+        <div class="tv h-[150px]" data-sym="OANDA:XAUUSD"></div>
       </div>
     </div>
 
@@ -963,13 +979,16 @@
         </div>
 
         <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-          <div class="text-xs font-semibold text-slate-200 mb-2">Confirm before entry (first 1–5 min)</div>
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <div class="text-xs font-semibold text-slate-200">Confirm before entry</div>
+            <div id="nbRef" class="text-[10px] text-slate-500 text-right"></div>
+          </div>
           <div id="nbChecks" class="space-y-1.5 text-xs text-slate-300"></div>
           <div id="nbConfirm" class="mt-3 text-xs font-semibold"></div>
         </div>
         <p class="text-[11px] text-slate-500 leading-relaxed">
-          Rule of thumb: hot inflation / strong jobs / hawkish Fed → USD &amp; yields up → gold down. Cool / weak / dovish → gold up.
-          Core beats headline when they disagree. This is the likely <i>initial</i> reaction, not a guarantee.
+          AUTO ticks use moves since the release: DXY ≥ 0.05, US10Y ≥ 2 bp, gold's first 5-min after release. Without live market data, tick manually using the charts above.
+          This is the likely <i>initial</i> reaction, not a guarantee.
         </p>
       </div>
     </div>
@@ -979,71 +998,57 @@
 <script>
 (() => {
   'use strict';
-  const STORE = 'pfnb-actuals-v1';
-  const CHECK_STORE = 'pfnb-checks-v1';
+  const STORE = 'pfnb-actuals-v1', CHECK_STORE = 'pfnb-checks-v1', MIN = 60000;
+  const TH = { DXY: 0.05, US10Y: 0.02 };          // confirmation thresholds
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  /* ---------- 1. Mount panel above the Economic Calendar ---------- */
+  /* ---------- 1. Mount above the Economic Calendar ---------- */
   const calSection = document.getElementById('calBody')?.closest('section');
   if (!calSection) { console.warn('News Bias: calendar section not found'); return; }
   calSection.parentNode.insertBefore(document.getElementById('nbTpl').content.cloneNode(true), calSection);
   const $ = (id) => document.getElementById(id);
 
-  /* ---------- 2. Event classification ----------
-     dir = +1 → a HIGHER number is good for that currency (hawkish / strong)
-     dir = -1 → a HIGHER number is bad for that currency (e.g. unemployment)
-     w   = weight in the net score (Core CPI, NFP, Fed rate weigh most)          */
-  const RULES = [
-    [/core (cpi|pce)/i,                       +1, 3, 'Core inflation'],
-    [/\bcpi\b|consumer price/i,               +1, 2, 'Inflation'],
-    [/\bpce\b/i,                              +1, 2, 'Inflation'],
-    [/\bppi\b|producer price/i,               +1, 1, 'Inflation'],
-    [/average hourly earnings|wage/i,         +1, 2, 'Wages'],
-    [/non-?farm|nfp|employment change/i,      +1, 3, 'Jobs'],
-    [/adp/i,                                  +1, 1, 'Jobs'],
-    [/unemployment claims|jobless/i,          -1, 1, 'Jobs'],
-    [/unemployment rate/i,                    -1, 2, 'Jobs'],
-    [/jolts|job openings/i,                   +1, 1, 'Jobs'],
-    [/funds rate|interest rate|rate decision|refinancing rate|cash rate|bank rate/i, +1, 3, 'Central bank'],
-    [/gdp/i,                                  +1, 2, 'Growth'],
-    [/retail sales/i,                         +1, 2, 'Growth'],
-    [/ism|pmi/i,                              +1, 1, 'Activity'],
-    [/consumer (sentiment|confidence)/i,      +1, 1, 'Sentiment'],
-    [/inflation expectations/i,               +1, 1, 'Inflation'],
-    [/durable goods|industrial production|housing starts|building permits|home sales/i, +1, 1, 'Activity'],
-    [/trade balance/i,                        +1, 0.5, 'Trade']
-  ];
-  const classify = (title) => {
-    for (const [re, dir, w, group] of RULES) if (re.test(title)) return { dir, w, group };
-    return null; // speeches, statements, auctions → no numeric bias
-  };
+  /* ---------- 2. TradingView mini widgets ---------- */
+  document.querySelectorAll('#nbWidgets .tv').forEach(box => {
+    const wrap = document.createElement('div');
+    wrap.className = 'tradingview-widget-container';
+    wrap.style.height = '100%';
+    wrap.innerHTML = '<div class="tradingview-widget-container__widget" style="height:100%"></div>';
+    const s = document.createElement('script');
+    s.src = 'https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js';
+    s.async = true;
+    s.text = JSON.stringify({ symbol: box.dataset.sym, width: '100%', height: '100%', locale: 'en', dateRange: '1D',
+      colorTheme: 'dark', isTransparent: true, autosize: true, largeChartUrl: '', noTimeScale: false, chartOnly: false });
+    wrap.appendChild(s);
+    box.appendChild(wrap);
+  });
 
-  /* ---------- 3. Number parsing: 0.3%, 245K, -1.2M, 4.50%, <0.1% ---------- */
+  /* ---------- 3. Event classification ---------- */
+  const RULES = [
+    [/core (cpi|pce)/i, +1, 3], [/\bcpi\b|consumer price/i, +1, 2], [/\bpce\b/i, +1, 2], [/\bppi\b|producer price/i, +1, 1],
+    [/average hourly earnings|wage/i, +1, 2], [/non-?farm|nfp|employment change/i, +1, 3], [/adp/i, +1, 1],
+    [/unemployment claims|jobless/i, -1, 1], [/unemployment rate/i, -1, 2], [/jolts|job openings/i, +1, 1],
+    [/funds rate|interest rate|rate decision|refinancing rate|cash rate|bank rate/i, +1, 3],
+    [/gdp/i, +1, 2], [/retail sales/i, +1, 2], [/ism|pmi/i, +1, 1], [/consumer (sentiment|confidence)/i, +1, 1],
+    [/inflation expectations/i, +1, 1], [/durable goods|industrial production|housing starts|building permits|home sales/i, +1, 1],
+    [/trade balance/i, +1, 0.5]
+  ];
+  const classify = (t) => { for (const [re, dir, w] of RULES) if (re.test(t)) return { dir, w }; return null; };
   function parseVal(v) {
     if (v == null) return null;
-    const s = String(v).trim().replace(/,/g, '').replace(/^[<>]/, '');
-    const m = s.match(/^(-?\d*\.?\d+)\s*([KMBT%])?$/i);
+    const m = String(v).trim().replace(/,/g, '').replace(/^[<>]/, '').match(/^(-?\d*\.?\d+)\s*([KMBT%])?$/i);
     if (!m) return null;
     const mult = { K: 1e3, M: 1e6, B: 1e9, T: 1e12 }[(m[2] || '').toUpperCase()] || 1;
     return { n: parseFloat(m[1]) * mult, pct: m[2] === '%', unit: m[2] || '' };
   }
-
-  /* Returns surprise score in [-2..+2] from the CURRENCY's point of view (+ = hawkish/strong) */
   function surprise(ev, actualStr) {
-    const cls = classify(ev.title);
-    const a = parseVal(actualStr), f = parseVal(ev.forecast);
+    const cls = classify(ev.title), a = parseVal(actualStr), f = parseVal(ev.forecast);
     if (!cls || !a || !f) return null;
     const diff = a.n - f.n;
     let mag;
-    if (f.pct || a.pct) {
-      const d = Math.abs(diff);
-      mag = d >= 0.195 ? 2 : d >= 0.095 ? 1 : 0;           // 0.1 = moderate, 0.2+ = strong
-    } else {
-      const rel = Math.abs(diff) / Math.max(Math.abs(f.n), 1e-9);
-      mag = rel >= 0.2 ? 2 : rel >= 0.05 ? 1 : 0;           // 5% = moderate, 20%+ = strong
-    }
-    const sign = diff === 0 ? 0 : Math.sign(diff) * cls.dir;
-    return { score: sign * mag, diff, cls, unit: a.unit || f.unit };
+    if (f.pct || a.pct) { const d = Math.abs(diff); mag = d >= 0.195 ? 2 : d >= 0.095 ? 1 : 0; }
+    else { const rel = Math.abs(diff) / Math.max(Math.abs(f.n), 1e-9); mag = rel >= 0.2 ? 2 : rel >= 0.05 ? 1 : 0; }
+    return { score: (diff === 0 ? 0 : Math.sign(diff) * cls.dir) * mag, diff, cls, unit: a.unit || f.unit };
   }
   const fmtDiff = (d, unit) => {
     if (unit === '%' || unit === '') return (d > 0 ? '+' : '') + (+d.toFixed(3)) + unit;
@@ -1052,179 +1057,197 @@
   };
 
   /* ---------- 4. Data ---------- */
-  let EVENTS = [];
-  let actuals = {};
-  let AUTO = { items: [], fetched_at: 0 };
+  let EVENTS = [], AUTO = { items: [] }, MKT = null, actuals = {}, checks = {};
   try { actuals = JSON.parse(localStorage.getItem(STORE) || '{}') || {}; } catch (_) {}
+  try { checks = JSON.parse(localStorage.getItem(CHECK_STORE) || '{}') || {}; } catch (_) {}
   const keyOf = (e) => e.date + '|' + e.country + '|' + e.title;
+  const ago = (t) => { const m = Math.round((Date.now() - t) / MIN); return m < 1 ? 'just now' : m < 120 ? m + 'm ago' : Math.round(m / 60) + 'h ago'; };
 
-  async function load() {
-    const urls = ['data/calendar.json?ts=' + Date.now(), 'https://nfs.faireconomy.media/ff_calendar_thisweek.json'];
-    for (const u of urls) {
+  async function getJSON(u) { const r = await fetch(u, { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }
+
+  async function loadCalendar() {
+    for (const u of ['data/calendar.json?ts=' + Date.now(), 'https://nfs.faireconomy.media/ff_calendar_thisweek.json']) {
       try {
-        const r = await fetch(u, { cache: 'no-store' });
-        if (!r.ok) continue;
-        const j = await r.json();
-        const raw = Array.isArray(j) ? j : j.events;
+        const j = await getJSON(u), raw = Array.isArray(j) ? j : j.events;
         if (!Array.isArray(raw) || !raw.length) continue;
         EVENTS = raw.filter(e => e && e.title && Date.parse(e.date))
           .map(e => ({ date: e.date, t: Date.parse(e.date), country: String(e.country || '').toUpperCase(), title: String(e.title),
-                       impact: String(e.impact || '').toLowerCase(), forecast: e.forecast || '', previous: e.previous || '', actual: e.actual || '' }))
+            impact: String(e.impact || '').toLowerCase(), forecast: e.forecast || '', previous: e.previous || '', actual: e.actual || '' }))
           .sort((a, b) => a.t - b.t);
-        await loadAuto(); buildDays(); render(); return;
-      } catch (_) { /* try next */ }
+        return true;
+      } catch (_) {}
     }
-    $('nbEmpty').textContent = 'Could not load calendar data.';
-    $('nbEmpty').classList.remove('hidden');
+    return false;
   }
-
   async function loadAuto() {
     try {
-      const r = await fetch('data/actuals.json?ts=' + Date.now(), { cache: 'no-store' });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      const j = await r.json();
-      AUTO = { items: Array.isArray(j.items) ? j.items : [], fetched_at: Date.parse(j.fetched_at) || 0 };
-      const age = Math.round((Date.now() - AUTO.fetched_at) / 60000);
-      $('nbAuto').innerHTML = '<span class="text-emerald-400 font-semibold">auto ON</span> · BLS checked ' + (age < 1 ? 'just now' : age < 120 ? age + 'm ago' : Math.round(age / 60) + 'h ago');
-    } catch (_) {
-      $('nbAuto').innerHTML = '<span class="text-amber-400 font-semibold">auto OFF</span> · data/actuals.json not found';
-    }
+      const j = await getJSON('data/actuals.json?ts=' + Date.now());
+      AUTO = { items: Array.isArray(j.items) ? j.items : [] };
+      $('nbAuto').innerHTML = '<span class="text-emerald-400 font-semibold">BLS auto</span> ' + ago(Date.parse(j.fetched_at));
+    } catch (_) { $('nbAuto').innerHTML = '<span class="text-amber-400 font-semibold">manual</span>'; }
   }
-  /* Auto actual only if: USD, title matches, BLS period = 1–2 months before the release,
-     event time has passed and the value was first seen after the release (so last month's
-     number is never shown as this month's actual). */
+  async function loadMarkets() {
+    try {
+      const j = await getJSON('data/markets.json?ts=' + Date.now());
+      MKT = { at: Date.parse(j.fetched_at) || 0, s: j.symbols || {} };
+    } catch (_) { MKT = null; }
+    const fresh = MKT && Date.now() - MKT.at < 3 * MIN;
+    $('nbMktSrc').innerHTML = !MKT ? '<span class="text-amber-400 font-semibold">charts only</span>'
+      : fresh ? '<span class="text-emerald-400 font-semibold">live</span> ' + ago(MKT.at)
+      : '<span class="text-amber-400 font-semibold">stale</span> ' + ago(MKT.at);
+  }
   function autoActual(e) {
-    if (e.country !== 'USD' || e.t > Date.now()) return null;
+    if (!e || e.country !== 'USD' || e.t > Date.now()) return null;
     const rel = new Date(e.t);
     for (const it of AUTO.items) {
       if (!(it.titles || []).some(t => t.toLowerCase() === e.title.toLowerCase())) continue;
       const [py, pm] = String(it.period).split('-').map(Number);
       const lag = (rel.getUTCFullYear() * 12 + rel.getUTCMonth() + 1) - (py * 12 + pm);
-      if (lag < 1 || lag > 2) continue;
-      if (Date.parse(it.first_seen) < e.t - 5 * 60000) continue;
+      if (lag < 1 || lag > 2 || Date.parse(it.first_seen) < e.t - 5 * MIN) continue;
       return it.actual;
     }
     return null;
   }
 
+  /* ---------- 5. Market moves relative to a reference time ---------- */
+  function priceAt(bars, t) {            // last close at or before t
+    let v = null;
+    for (const [bt, c] of bars) { if (bt <= t) v = c; else break; }
+    return v;
+  }
+  function moveSince(sym, t, until) {
+    const s = MKT && MKT.s[sym];
+    if (!s || !Array.isArray(s.bars) || !s.bars.length) return null;
+    const base = priceAt(s.bars, t);
+    const end = until ? priceAt(s.bars, until) : s.last;
+    if (base == null || end == null || s.bars[0][0] > t) return null;  // reference time not covered
+    return { base, end, d: end - base };
+  }
+  function blackoutAfterMin() {
+    try {
+      const s = JSON.parse(localStorage.getItem('pfnb-settings-v1') || '{}');
+      if (s.profile === 'fundingpips') return 5;
+      if (s.profile === 'custom' && s.custom && Number.isFinite(s.custom.after)) return s.custom.after;
+    } catch (_) {}
+    return 2;
+  }
+
+  /* ---------- 6. Render ---------- */
   const dayKey = (t) => new Date(t).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   function buildDays() {
-    const days = [...new Set(EVENTS.map(e => dayKey(e.t)))];
-    const today = dayKey(Date.now());
-    const sel = $('nbDay');
-    const prev = sel.value;
-    sel.innerHTML = days.map(d => '<option' + (d === today ? ' selected' : '') + '>' + esc(d) + '</option>').join('');
+    const days = [...new Set(EVENTS.map(e => dayKey(e.t)))], sel = $('nbDay'), prev = sel.value, today = dayKey(Date.now());
+    sel.innerHTML = days.map(d => '<option>' + esc(d) + '</option>').join('');
     if (prev && days.includes(prev)) sel.value = prev;
-    else if (!days.includes(today)) {
-      const next = EVENTS.find(e => e.t > Date.now());
-      sel.value = next ? dayKey(next.t) : days[days.length - 1];
-    }
+    else if (days.includes(today)) sel.value = today;
+    else { const nx = EVENTS.find(e => e.t > Date.now()); sel.value = nx ? dayKey(nx.t) : days[days.length - 1]; }
   }
-
-  function filtered() {
-    const scope = $('nbScope').value, day = $('nbDay').value;
-    return EVENTS.filter(e => dayKey(e.t) === day && (
-      scope === 'all' ? e.impact === 'high' :
-      scope === 'usdhigh' ? e.country === 'USD' && e.impact === 'high' :
-      e.country === 'USD' && (e.impact === 'high' || e.impact === 'medium')));
-  }
-
-  /* ---------- 5. Render ---------- */
-  const BIAS = {
-    '2':  ['Strong bearish', 'bg-red-600 text-white'],
-    '1':  ['Bearish',        'bg-red-500/25 text-red-300 border border-red-500/40'],
-    '0':  ['Inline · no edge', 'bg-slate-700 text-slate-200'],
-    '-1': ['Bullish',        'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40'],
-    '-2': ['Strong bullish', 'bg-emerald-600 text-white']
+  const filtered = () => {
+    const sc = $('nbScope').value, day = $('nbDay').value;
+    return EVENTS.filter(e => dayKey(e.t) === day && (sc === 'all' ? e.impact === 'high'
+      : sc === 'usdhigh' ? e.country === 'USD' && e.impact === 'high'
+      : e.country === 'USD' && (e.impact === 'high' || e.impact === 'medium')));
   };
+  const BIAS = { '2': ['Strong bearish', 'bg-red-600 text-white'], '1': ['Bearish', 'bg-red-500/25 text-red-300 border border-red-500/40'],
+    '0': ['Inline · no edge', 'bg-slate-700 text-slate-200'], '-1': ['Bullish', 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40'],
+    '-2': ['Strong bullish', 'bg-emerald-600 text-white'] };
 
+  let REF = null;   // latest scored USD release time → reference for market confirmation
   function render() {
     const rows = filtered();
     $('nbEmpty').classList.toggle('hidden', rows.length > 0);
-    let net = 0, wsum = 0, used = [];
+    let net = 0, wsum = 0, used = 0; REF = null;
     $('nbBody').innerHTML = rows.map(e => {
-      const k = keyOf(e);
-      const auto = autoActual(e);
-      const manual = actuals[k];
+      const k = keyOf(e), manual = actuals[k], auto = autoActual(e);
       const act = manual ?? (e.actual || auto || '');
       const src = manual != null ? 'manual' : e.actual ? 'feed' : auto ? 'BLS' : '';
       const s = surprise(e, act);
-      const isUSD = e.country === 'USD';
       let pill = '<span class="text-[11px] text-slate-500">' + (classify(e.title) ? (e.forecast ? 'Awaiting actual' : 'No forecast') : 'Qualitative · read headline') + '</span>';
       let sup = '<span class="text-slate-600">—</span>';
       if (s) {
         sup = '<span class="mono text-xs ' + (s.score > 0 ? 'text-red-300' : s.score < 0 ? 'text-emerald-300' : 'text-slate-400') + '">' + esc(fmtDiff(s.diff, s.unit)) + '</span>';
-        if (isUSD) {
-          // USD hawkish (+) ⇒ gold bearish
-          const [lbl, cls] = BIAS[String(s.score)];
-          pill = '<span class="rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide ' + cls + '">' + (s.score > 0 ? '▼ ' : s.score < 0 ? '▲ ' : '') + lbl + '</span>';
-          net += -s.score * s.cls.w; wsum += 2 * s.cls.w; used.push(e.title);
+        if (e.country === 'USD') {
+          const [l, c] = BIAS[String(s.score)];
+          pill = '<span class="rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide ' + c + '">' + (s.score > 0 ? '▼ ' : s.score < 0 ? '▲ ' : '') + l + '</span>';
+          net += -s.score * s.cls.w; wsum += 2 * s.cls.w; used++;
+          if (e.t <= Date.now() && (!REF || e.t > REF)) REF = e.t;
         } else {
-          pill = '<span class="text-[11px] ' + (s.score > 0 ? 'text-sky-300' : s.score < 0 ? 'text-amber-300' : 'text-slate-400') + '">' +
-                 esc(e.country) + ' ' + (s.score > 0 ? 'stronger' : s.score < 0 ? 'weaker' : 'inline') + ' · gold n/a</span>';
+          pill = '<span class="text-[11px] ' + (s.score > 0 ? 'text-sky-300' : s.score < 0 ? 'text-amber-300' : 'text-slate-400') + '">' + esc(e.country) + ' ' + (s.score > 0 ? 'stronger' : s.score < 0 ? 'weaker' : 'inline') + ' · gold n/a</span>';
         }
       }
       const time = new Date(e.t).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
       return '<tr class="border-b border-slate-800/70">' +
         '<td class="py-2 px-2 mono text-slate-200 whitespace-nowrap">' + time + '</td>' +
-        '<td class="py-2 px-2"><span class="text-[10px] font-bold text-slate-400 mr-1">' + esc(e.country) + '</span>' +
-          '<span class="' + (e.impact === 'high' ? 'text-white font-semibold' : 'text-slate-300') + '">' + esc(e.title) + '</span></td>' +
+        '<td class="py-2 px-2"><span class="text-[10px] font-bold text-slate-400 mr-1">' + esc(e.country) + '</span><span class="' + (e.impact === 'high' ? 'text-white font-semibold' : 'text-slate-300') + '">' + esc(e.title) + '</span></td>' +
         '<td class="py-2 px-2 mono text-xs text-slate-300">' + esc(e.forecast || '—') + '</td>' +
         '<td class="py-2 px-2 mono text-xs text-slate-500">' + esc(e.previous || '—') + '</td>' +
-        '<td class="py-2 px-2"><input data-k="' + esc(k) + '" value="' + esc(act) + '" placeholder="e.g. 0.3%" aria-label="Actual for ' + esc(e.title) + '"' +
-          ' class="inp mono !w-24 !py-1 !px-2 text-xs' + (src === 'BLS' || src === 'feed' ? ' !border-emerald-600' : '') + '" />' +
+        '<td class="py-2 px-2"><input data-k="' + esc(k) + '" value="' + esc(act) + '" placeholder="e.g. 0.3%" aria-label="Actual for ' + esc(e.title) + '" class="inp mono !w-24 !py-1 !px-2 text-xs' + (src === 'BLS' || src === 'feed' ? ' !border-emerald-600' : '') + '" />' +
           (src ? '<div class="text-[9px] mt-0.5 ' + (src === 'manual' ? 'text-amber-400' : 'text-emerald-400') + '">' + src + '</div>' : '') + '</td>' +
         '<td class="py-2 px-2 whitespace-nowrap">' + sup + '</td>' +
         '<td class="py-2 px-2 text-right whitespace-nowrap">' + pill + '</td></tr>';
     }).join('');
-    renderVerdict(net, wsum, used);
+    renderVerdict(wsum ? net / wsum : 0, used);
   }
 
-  function renderVerdict(net, wsum, used) {
-    const box = $('nbVerdict'), lbl = $('nbVerdictLbl'), sub = $('nbVerdictSub'), meter = $('nbMeter');
-    const norm = wsum ? net / wsum : 0;   // -1 … +1  (+ = gold bullish)
+  let EXPECT = null;
+  function renderVerdict(norm, used) {
     let txt, cls, bar;
-    if (!used.length) { txt = 'Waiting for data'; cls = 'border-slate-700 bg-slate-900 text-slate-200'; bar = 'bg-slate-500'; }
+    if (!used) { txt = 'Waiting for data'; cls = 'border-slate-700 bg-slate-900 text-slate-200'; bar = 'bg-slate-500'; }
     else if (norm >= 0.35) { txt = '▲ GOLD BULLISH (strong)'; cls = 'border-emerald-400 bg-emerald-700/70 text-white'; bar = 'bg-emerald-300'; }
     else if (norm >= 0.1) { txt = '▲ Gold bullish'; cls = 'border-emerald-500/50 bg-emerald-950/60 text-emerald-200'; bar = 'bg-emerald-400'; }
     else if (norm <= -0.35) { txt = '▼ GOLD BEARISH (strong)'; cls = 'border-red-400 bg-red-800/70 text-white'; bar = 'bg-red-300'; }
     else if (norm <= -0.1) { txt = '▼ Gold bearish'; cls = 'border-red-500/50 bg-red-950/60 text-red-200'; bar = 'bg-red-400'; }
     else { txt = '◆ Mixed / inline — no edge'; cls = 'border-amber-500/50 bg-amber-950/50 text-amber-200'; bar = 'bg-amber-300'; }
-    box.className = 'rounded-xl border p-4 transition-colors ' + cls;
-    lbl.textContent = txt;
-    const w = Math.min(50, Math.abs(norm) * 50);
-    meter.className = 'absolute top-0 bottom-0 transition-all ' + bar;
-    meter.style.left = norm >= 0 ? '50%' : (50 - w) + '%';
-    meter.style.width = Math.max(used.length ? 1 : 0, w) + '%';
-    sub.textContent = used.length
-      ? 'Based on ' + used.length + ' USD release' + (used.length > 1 ? 's' : '') + ' (weighted, Core/NFP/Fed count most). Score ' + (norm > 0 ? '+' : '') + norm.toFixed(2)
-      : 'Type the Actual value when a USD release prints.';
-    window.__nbExpect = norm <= -0.1 ? 'bear' : norm >= 0.1 ? 'bull' : null;
+    $('nbVerdict').className = 'rounded-xl border p-4 transition-colors ' + cls;
+    $('nbVerdictLbl').textContent = txt;
+    const w = Math.min(50, Math.abs(norm) * 50), m = $('nbMeter');
+    m.className = 'absolute top-0 bottom-0 transition-all ' + bar;
+    m.style.left = norm >= 0 ? '50%' : (50 - w) + '%';
+    m.style.width = Math.max(used ? 1 : 0, w) + '%';
+    $('nbVerdictSub').textContent = used ? 'Based on ' + used + ' USD release' + (used > 1 ? 's' : '') + ' (Core/NFP/Fed weigh most). Score ' + (norm > 0 ? '+' : '') + norm.toFixed(2) : 'Actual fills automatically for BLS releases; otherwise type it.';
+    EXPECT = norm <= -0.1 ? 'bear' : norm >= 0.1 ? 'bull' : null;
     renderChecks();
   }
 
-  /* ---------- 6. Confirmation checklist ---------- */
-  let checks = {};
-  try { checks = JSON.parse(localStorage.getItem(CHECK_STORE) || '{}') || {}; } catch (_) {}
   function renderChecks() {
-    const exp = window.__nbExpect;
-    const items = exp === 'bear'
-      ? [['dxy', 'DXY moving UP'], ['yld', 'US10Y yield moving UP'], ['candle', 'First 5-min XAUUSD candle closed RED'], ['blk', 'Prop firm blackout window has ended']]
-      : exp === 'bull'
-      ? [['dxy', 'DXY moving DOWN'], ['yld', 'US10Y yield moving DOWN'], ['candle', 'First 5-min XAUUSD candle closed GREEN'], ['blk', 'Prop firm blackout window has ended']]
-      : [];
-    if (!items.length) {
-      $('nbChecks').innerHTML = '<div class="text-slate-500">No directional bias yet — nothing to confirm.</div>';
-      $('nbConfirm').textContent = '';
-      return;
-    }
-    $('nbChecks').innerHTML = items.map(([id, t]) =>
-      '<label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" data-c="' + id + '" ' + (checks[exp + id] ? 'checked' : '') +
-      ' class="h-4 w-4 accent-sky-500" />' + esc(t) + '</label>').join('');
-    const n = items.filter(([id]) => checks[exp + id]).length;
+    const ref = REF, now = Date.now();
+    // Header change labels on the widget strip (since release, or vs prior close)
+    const lab = (id, sym, dp, unit) => {
+      const mv = ref ? moveSince(sym, ref) : null, s = MKT && MKT.s[sym];
+      const el = $(id);
+      let d = mv ? mv.d : (s && s.last != null && s.prev_close != null ? s.last - s.prev_close : null);
+      if (d == null) { el.textContent = ''; return; }
+      if (unit === 'bp') d *= 100;
+      el.textContent = (d > 0 ? '+' : '') + d.toFixed(dp) + (unit || '') + (mv ? ' since release' : ' today');
+      el.className = 'mono ' + (d > 0 ? 'text-emerald-400' : d < 0 ? 'text-red-400' : 'text-slate-500');
+    };
+    lab('nbDxyChg', 'DXY', 3); lab('nbYldChg', 'US10Y', 1, 'bp'); lab('nbGoldChg', 'GOLD', 1);
+
+    if (!EXPECT) { $('nbChecks').innerHTML = '<div class="text-slate-500">No directional bias yet — nothing to confirm.</div>'; $('nbConfirm').textContent = ''; $('nbRef').textContent = ''; return; }
+    const up = EXPECT === 'bear';  // gold bearish ⇒ DXY & yields should rise
+    const fresh = MKT && now - MKT.at < 3 * MIN;
+    const dxy = ref && fresh ? moveSince('DXY', ref) : null;
+    const yld = ref && fresh ? moveSince('US10Y', ref) : null;
+    const gold5 = ref && MKT && now >= ref + 5 * MIN ? moveSince('GOLD', ref, ref + 5 * MIN) : null;
+    const after = blackoutAfterMin();
+    const auto = (mv, th) => mv == null ? null : (up ? mv.d >= th : mv.d <= -th);
+    const items = [
+      ['dxy', 'DXY moving ' + (up ? 'UP' : 'DOWN'), auto(dxy, TH.DXY), dxy && ((dxy.d > 0 ? '+' : '') + dxy.d.toFixed(3))],
+      ['yld', 'US10Y yield moving ' + (up ? 'UP' : 'DOWN'), auto(yld, TH.US10Y), yld && ((yld.d > 0 ? '+' : '') + (yld.d * 100).toFixed(1) + 'bp')],
+      ['candle', 'First 5-min gold after release closed ' + (up ? 'RED' : 'GREEN'), gold5 ? (up ? gold5.d < 0 : gold5.d > 0) : null, gold5 && ((gold5.d > 0 ? '+' : '') + gold5.d.toFixed(1))],
+      ['blk', 'Blackout ended (+' + after + ' min)', ref ? now >= ref + after * MIN : null, ref && now < ref + after * MIN ? Math.ceil((ref + after * MIN - now) / 1000) + 's left' : '']
+    ];
+    $('nbRef').textContent = ref ? 'vs ' + new Date(ref).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }) + ' release' : '';
+    let ok = 0;
+    $('nbChecks').innerHTML = items.map(([id, t, a, val]) => {
+      const isAuto = a !== null, on = isAuto ? a : !!checks[EXPECT + id];
+      if (on) ok++;
+      return '<label class="flex items-center gap-2 ' + (isAuto ? '' : 'cursor-pointer') + '"><input type="checkbox" data-c="' + id + '"' + (on ? ' checked' : '') + (isAuto ? ' disabled' : '') + ' class="h-4 w-4 accent-sky-500" />' +
+        '<span class="flex-1">' + esc(t) + '</span>' + (val ? '<span class="mono text-[10px] ' + (on ? 'text-emerald-300' : 'text-red-300') + '">' + esc(val) + '</span>' : '') +
+        '<span class="text-[9px] font-bold ' + (isAuto ? 'text-sky-400' : 'text-slate-600') + '">' + (isAuto ? 'AUTO' : 'MANUAL') + '</span></label>';
+    }).join('');
     const c = $('nbConfirm');
-    if (n === items.length) { c.textContent = '✅ Confirmed — bias aligned. Trade the retest with your normal risk.'; c.className = 'mt-3 text-xs font-semibold text-emerald-300'; }
-    else { c.textContent = n + ' / ' + items.length + ' confirmed — wait.'; c.className = 'mt-3 text-xs font-semibold text-amber-300'; }
+    if (ok === items.length) { c.textContent = '✅ Confirmed — bias aligned. Trade the retest with your normal risk.'; c.className = 'mt-3 text-xs font-semibold text-emerald-300'; }
+    else { c.textContent = ok + ' / ' + items.length + ' confirmed — wait.'; c.className = 'mt-3 text-xs font-semibold text-amber-300'; }
   }
 
   /* ---------- 7. Events ---------- */
@@ -1233,33 +1256,44 @@
     const v = inp.value.trim();
     if (v && !parseVal(v)) { inp.classList.add('!border-red-500'); inp.title = 'Use a number like 0.3%, 245K, -1.2M'; return; }
     inp.classList.remove('!border-red-500'); inp.title = '';
-    if (v && v !== autoActual(EVENTS.find(x => keyOf(x) === inp.dataset.k) || {})) actuals[inp.dataset.k] = v; else delete actuals[inp.dataset.k];
+    const e = EVENTS.find(x => keyOf(x) === inp.dataset.k);
+    if (v && v !== autoActual(e)) actuals[inp.dataset.k] = v; else delete actuals[inp.dataset.k];
     try { localStorage.setItem(STORE, JSON.stringify(actuals)); } catch (_) {}
     render();
   });
   $('nbBody').addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target.matches('input[data-k]')) ev.target.blur(); });
   $('nbChecks').addEventListener('change', (ev) => {
-    const cb = ev.target.closest('input[data-c]'); if (!cb) return;
-    checks[(window.__nbExpect || '') + cb.dataset.c] = cb.checked;
+    const cb = ev.target.closest('input[data-c]'); if (!cb || cb.disabled) return;
+    checks[(EXPECT || '') + cb.dataset.c] = cb.checked;
     try { localStorage.setItem(CHECK_STORE, JSON.stringify(checks)); } catch (_) {}
     renderChecks();
   });
   $('nbScope').addEventListener('change', render);
   $('nbDay').addEventListener('change', () => { checks = {}; render(); });
-  document.getElementById('refreshBtn')?.addEventListener('click', () => setTimeout(load, 500));
+  document.getElementById('refreshBtn')?.addEventListener('click', () => setTimeout(full, 300));
 
-  load();
-  // Poll actuals every 20 s for 20 min after any USD high/medium release, otherwise every 5 min.
+  /* ---------- 8. Loop ---------- */
+  async function full() {
+    const ok = await loadCalendar();
+    await Promise.all([loadAuto(), loadMarkets()]);
+    if (!ok) { $('nbEmpty').textContent = 'Could not load calendar data.'; $('nbEmpty').classList.remove('hidden'); return; }
+    buildDays(); render();
+  }
   let lastFull = Date.now();
   setInterval(async () => {
     const n = Date.now();
-    const hot = EVENTS.some(e => e.country === 'USD' && e.t <= n && n - e.t < 20 * 60000);
-    if (n - lastFull > 15 * 60000) { lastFull = n; return load(); }
-    if (hot || n % (5 * 60000) < 20000) { await loadAuto(); render(); }
-  }, 20000);
+    if (n - lastFull > 15 * MIN) { lastFull = n; return full(); }
+    const hot = EVENTS.some(e => e.country === 'USD' && e.t <= n && n - e.t < 30 * MIN);
+    await loadMarkets();                       // cheap local file: every 10 s
+    if (hot || n % (5 * MIN) < 10000) await loadAuto();
+    render();
+  }, 10000);
+  setInterval(renderChecks, 1000);             // blackout countdown ticks
+  full();
 })();
 </script>
-<!-- =================== END NEWS BIAS PANEL =================== -->
+<!-- =================== END NEWS BIAS PANEL v3 =================== -->
+
 
 
 </body>
