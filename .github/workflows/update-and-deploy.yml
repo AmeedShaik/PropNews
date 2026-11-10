@@ -4,8 +4,9 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "7,37 * * * *"
-    - cron: "31-59/4 12-13 * * 1-5"
+    - cron: "7,37 * * * *"               # calendar every 30 min
+    - cron: "31-59/4 12-13 * * 1-5"      # US data 08:30 ET (BLS)
+    - cron: "31-59/4 14-15 * * 3,4"      # EIA crude inventories 10:30 ET (Wed; Thu on holiday weeks)
   workflow_dispatch:
 
 permissions:
@@ -33,19 +34,20 @@ jobs:
       - name: Fetch live calendar
         run: python scripts/fetch_calendar.py
 
-      - name: Fetch official actuals (BLS)
+      - name: Fetch official actuals (BLS + EIA)
         env:
           BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: python scripts/fetch_actuals.py
 
-      - name: Fetch DXY / US10Y / Gold snapshot
+      - name: Fetch market snapshot (not committed, deployed only)
         run: python scripts/fetch_markets.py
 
-      - name: Commit updated data
+      - name: Commit calendar + actuals
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/*.json 2>/dev/null || true
+          git add data/calendar.json data/actuals.json 2>/dev/null || true
           git diff --cached --quiet || (git commit -m "chore: update data [skip ci]" && git pull --rebase && git push)
 
       - uses: actions/configure-pages@v5
