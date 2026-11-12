@@ -1,6 +1,6 @@
 {
  "source": "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
- "fetched_at": "2026-11-12T18:33:00.747094+00:00",
+ "fetched_at": "2026-11-12T20:19:11.814553+00:00",
  "count": 106,
  "events": [
   {
@@ -612,14 +612,6 @@
    "previous": ""
   },
   {
-   "title": "Mortgage Delinquencies",
-   "country": "USD",
-   "date": "2026-11-12T12:59:00-05:00",
-   "impact": "Low",
-   "forecast": "",
-   "previous": "4.37%"
-  },
-  {
    "title": "30-y Bond Auction",
    "country": "USD",
    "date": "2026-11-12T13:01:00-05:00",
@@ -802,6 +794,14 @@
    "impact": "Low",
    "forecast": "",
    "previous": ""
+  },
+  {
+   "title": "Mortgage Delinquencies",
+   "country": "USD",
+   "date": "2026-11-13T10:15:00-05:00",
+   "impact": "Low",
+   "forecast": "",
+   "previous": "4.37%"
   },
   {
    "title": "Natural Gas Storage",

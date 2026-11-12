@@ -1,6 +1,6 @@
 {
  "source": "BLS + EIA public APIs",
- "fetched_at": "2026-11-12T18:33:01.553656+00:00",
+ "fetched_at": "2026-11-12T20:19:13.353216+00:00",
  "items": [
   {
    "titles": [
@@ -70,9 +70,9 @@
     "Crude Oil Inventories"
    ],
    "kind": "weekly",
-   "period": "2026-10-30",
-   "actual": "-0.9M",
-   "first_seen": "2026-11-10T18:17:22.359793+00:00"
+   "period": "2026-11-06",
+   "actual": "4.7M",
+   "first_seen": "2026-11-12T20:19:13.353216+00:00"
   }
  ],
  "first_seen": {
@@ -83,7 +83,8 @@
   "Average Hourly Earnings m/m|2026-10": "2026-11-10T17:17:48.100655+00:00",
   "PPI m/m|2026-09": "2026-11-10T17:17:48.100655+00:00",
   "Core PPI m/m|2026-09": "2026-11-10T17:17:48.100655+00:00",
-  "Crude Oil Inventories|2026-10-30": "2026-11-10T18:17:22.359793+00:00"
+  "Crude Oil Inventories|2026-10-30": "2026-11-10T18:17:22.359793+00:00",
+  "Crude Oil Inventories|2026-11-06": "2026-11-12T20:19:13.353216+00:00"
  },
  "errors": [
   "BLS: HTTP Error 503: Service Unavailable"
