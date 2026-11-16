@@ -1,6 +1,6 @@
 {
  "source": "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
- "fetched_at": "2026-11-16T07:10:06.778118+00:00",
+ "fetched_at": "2026-11-16T17:21:02.108050+00:00",
  "count": 120,
  "events": [
   {
@@ -166,7 +166,7 @@
   {
    "title": "Cleveland Fed Inflation Expectations",
    "country": "USD",
-   "date": "2026-11-16T09:48:00-05:00",
+   "date": "2026-11-16T09:45:00-05:00",
    "impact": "Low",
    "forecast": "",
    "previous": "3.3%"
@@ -793,7 +793,7 @@
    "date": "2026-11-19T10:30:00-05:00",
    "impact": "Low",
    "forecast": "",
-   "previous": ""
+   "previous": "61B"
   },
   {
    "title": "FOMC Member Goolsbee Speaks",
