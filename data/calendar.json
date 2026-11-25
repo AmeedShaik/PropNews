@@ -1,7 +1,7 @@
 {
  "source": "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
- "fetched_at": "2026-11-25T10:21:01.548139+00:00",
- "count": 75,
+ "fetched_at": "2026-11-25T20:05:45.777567+00:00",
+ "count": 76,
  "events": [
   {
    "title": "Core Retail Sales q/q",
@@ -318,7 +318,7 @@
   {
    "title": "German 10-y Bond Auction",
    "country": "EUR",
-   "date": "2026-11-25T05:42:00-05:00",
+   "date": "2026-11-25T05:32:00-05:00",
    "impact": "Low",
    "forecast": "",
    "previous": "3.37|1.1"
@@ -394,6 +394,14 @@
    "impact": "Low",
    "forecast": "201K",
    "previous": "203K"
+  },
+  {
+   "title": "Monetary Policy Report Hearings",
+   "country": "GBP",
+   "date": "2026-11-25T09:15:00-05:00",
+   "impact": "Medium",
+   "forecast": "",
+   "previous": ""
   },
   {
    "title": "New Home Sales",
