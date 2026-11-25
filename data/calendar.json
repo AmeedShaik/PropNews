@@ -1,6 +1,6 @@
 {
  "source": "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
- "fetched_at": "2026-11-25T01:32:01.551273+00:00",
+ "fetched_at": "2026-11-25T10:21:01.548139+00:00",
  "count": 75,
  "events": [
   {
@@ -408,7 +408,7 @@
    "country": "USD",
    "date": "2026-11-25T10:30:00-05:00",
    "impact": "Low",
-   "forecast": "",
+   "forecast": "2.0M",
    "previous": "3.4M"
   },
   {
