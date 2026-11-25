@@ -1,7 +1,7 @@
 {
  "source": "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
- "fetched_at": "2026-11-24T22:41:12.067873+00:00",
- "count": 74,
+ "fetched_at": "2026-11-25T01:32:01.551273+00:00",
+ "count": 75,
  "events": [
   {
    "title": "Core Retail Sales q/q",
@@ -324,6 +324,14 @@
    "previous": "3.37|1.1"
   },
   {
+   "title": "FOMC Member Bowman Speaks",
+   "country": "USD",
+   "date": "2026-11-25T07:25:00-05:00",
+   "impact": "Low",
+   "forecast": "",
+   "previous": ""
+  },
+  {
    "title": "Core PCE Price Index m/m",
    "country": "USD",
    "date": "2026-11-25T08:30:00-05:00",
@@ -561,7 +569,7 @@
    "date": "2026-11-27T05:33:00-05:00",
    "impact": "Low",
    "forecast": "",
-   "previous": ""
+   "previous": "4.49|1.6"
   },
   {
    "title": "German Buba President Nagel Speaks",
