@@ -1,7 +1,7 @@
 {
  "source": "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
- "fetched_at": "2026-11-25T23:15:06.802701+00:00",
- "count": 76,
+ "fetched_at": "2026-11-26T02:45:14.612749+00:00",
+ "count": 77,
  "events": [
   {
    "title": "Core Retail Sales q/q",
@@ -474,6 +474,14 @@
    "impact": "Low",
    "forecast": "3.2%",
    "previous": "3.1%"
+  },
+  {
+   "title": "Euro Summit",
+   "country": "EUR",
+   "date": "2026-11-26T04:15:00-05:00",
+   "impact": "Low",
+   "forecast": "",
+   "previous": ""
   },
   {
    "title": "BOE Financial Stability Report",
