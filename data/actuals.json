@@ -1,6 +1,6 @@
 {
  "source": "BLS + EIA public APIs",
- "fetched_at": "2026-11-26T21:50:05.767913+00:00",
+ "fetched_at": "2026-11-26T21:51:41.186308+00:00",
  "items": [
   {
    "titles": [
@@ -70,9 +70,9 @@
     "Crude Oil Inventories"
    ],
    "kind": "weekly",
-   "period": "2026-11-13",
-   "actual": "3.4M",
-   "first_seen": "2026-11-18T20:49:54.791824+00:00"
+   "period": "2026-11-20",
+   "actual": "1.1M",
+   "first_seen": "2026-11-25T20:05:46.591962+00:00"
   }
  ],
  "first_seen": {
