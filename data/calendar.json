@@ -1,6 +1,6 @@
 {
  "source": "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
- "fetched_at": "2026-11-27T04:02:26.453667+00:00",
+ "fetched_at": "2026-11-27T13:42:02.049866+00:00",
  "count": 77,
  "events": [
   {
@@ -582,7 +582,7 @@
   {
    "title": "Italian 10-y Bond Auction",
    "country": "EUR",
-   "date": "2026-11-27T05:33:00-05:00",
+   "date": "2026-11-27T05:05:00-05:00",
    "impact": "Low",
    "forecast": "",
    "previous": "4.49|1.6"
